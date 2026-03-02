@@ -213,6 +213,62 @@ export default function Index() {
           </CardContent>
         </Card>
 
+        {/* Prerequisites Warning */}
+        <Alert className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+          <AlertDescription>
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5">⚠️</div>
+              <div className="flex-1">
+                <p className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                  Prerequisites Required
+                </p>
+                <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                  Before importing, ensure your target Jira project has:
+                </p>
+                <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1.5 mb-3">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1">•</span>
+                    <span>
+                      <strong>Issue Types:</strong> Bug, Epic, Story, Task{' '}
+                      <a
+                        href="https://support.atlassian.com/jira-cloud-administration/docs/add-edit-and-delete-an-issue-type/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-amber-900 dark:hover:text-amber-100"
+                      >
+                        (How to add issue types)
+                      </a>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1">•</span>
+                    <span>
+                      <strong>Story Points field</strong> (optional, for preserving estimates){' '}
+                      <a
+                        href="https://support.atlassian.com/jira-cloud-administration/docs/create-a-custom-field/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-amber-900 dark:hover:text-amber-100"
+                      >
+                        (How to create custom fields)
+                      </a>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1">•</span>
+                    <span>
+                      <strong>Attachments enabled</strong> for the project (usually on by default)
+                    </span>
+                  </li>
+                </ul>
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  Issues with missing issue types will fail to import. Story Points will be skipped if the field doesn't exist.
+                </p>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+
         {/* Import Info Card */}
         <Card className="mb-6 bg-accent/5 border-accent/20">
           <CardContent className="pt-6">

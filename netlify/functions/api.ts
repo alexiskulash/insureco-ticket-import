@@ -3,29 +3,43 @@ import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
 import { createServer } from "../../server";
 
 const app = createServer();
-const serverlessHandler = serverless(app);
 
 export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-  // Manually ensure body is parsed for POST requests
+  console.log('=== Netlify Function Called ===');
+  console.log('Method:', event.httpMethod);
+  console.log('Path:', event.path);
+  console.log('Headers:', JSON.stringify(event.headers, null, 2));
+  console.log('Body (raw):', event.body);
+  console.log('Is Base64:', event.isBase64Encoded);
+  
+  // Manually parse and inject body for POST requests
   if (event.httpMethod === 'POST' && event.body) {
     try {
-      // If body is base64 encoded, decode it first
       const bodyString = event.isBase64Encoded 
         ? Buffer.from(event.body, 'base64').toString('utf-8')
         : event.body;
       
-      // Parse JSON if content-type is application/json
-      if (event.headers['content-type']?.includes('application/json')) {
-        const parsedBody = JSON.parse(bodyString);
-        console.log('Netlify Function - Parsed body:', parsedBody);
-        
-        // Create a new event with parsed body
-        event.body = bodyString; // Keep as string for serverless-http
-      }
+      console.log('Body string:', bodyString);
+      
+      // Parse JSON
+      const parsedBody = JSON.parse(bodyString);
+      console.log('Parsed body:', JSON.stringify(parsedBody, null, 2));
+      
+      // Inject parsed body into the event for Express to use
+      // serverless-http should pick this up
+      (event as any).body = bodyString;
+      
     } catch (error) {
-      console.error('Error parsing body:', error);
+      console.error('Body parsing error:', error);
     }
   }
   
-  return serverlessHandler(event, context);
+  const serverlessHandler = serverless(app, {
+    binary: false,
+  });
+  
+  const result = await serverlessHandler(event, context);
+  console.log('Response status:', result.statusCode);
+  
+  return result;
 };

@@ -131,16 +131,29 @@ export const handleImportJira: RequestHandler = async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  const sendError = (message: string) => {
+    res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
+    res.end();
+  };
+
+  // Validate required fields
+  if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
+    sendError('Missing required fields. Please fill in: Jira Domain, Email, API Token, and Target Project Key.');
+    return;
+  }
+
+  // Validate domain format (should not include https:// or trailing slash)
+  if (config.domain.includes('://') || config.domain.endsWith('/')) {
+    sendError('Invalid domain format. Please enter just the domain (e.g., your-company.atlassian.net) without https:// or trailing slash.');
+    return;
+  }
+
   const sendProgress = (current: number, total: number, currentIssue: string) => {
     res.write(`data: ${JSON.stringify({ type: 'progress', current, total, currentIssue })}\n\n`);
   };
 
   const sendResult = (result: any) => {
     res.write(`data: ${JSON.stringify({ type: 'result', result })}\n\n`);
-  };
-
-  const sendError = (message: string) => {
-    res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
   };
 
   try {
@@ -305,7 +318,7 @@ export const handleImportJira: RequestHandler = async (req, res) => {
       errors,
     });
   } catch (error) {
-    sendError(error instanceof Error ? error.message : 'Unknown error occurred');
+    res.write(`data: ${JSON.stringify({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error occurred' })}\n\n`);
   }
 
   res.end();

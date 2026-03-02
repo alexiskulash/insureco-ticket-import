@@ -47,8 +47,21 @@ export default function Index() {
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const handleImport = async () => {
-    if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
-      alert('Please fill in all fields');
+    // Validate all required fields
+    const missingFields = [];
+    if (!config.domain) missingFields.push('Jira Domain');
+    if (!config.email) missingFields.push('Email');
+    if (!config.apiToken) missingFields.push('API Token');
+    if (!config.targetProject) missingFields.push('Target Project Key');
+
+    if (missingFields.length > 0) {
+      alert(`Please fill in the following required fields:\n\n${missingFields.join('\n')}`);
+      return;
+    }
+
+    // Validate domain format
+    if (config.domain.includes('://') || config.domain.endsWith('/')) {
+      alert('Invalid Jira Domain format.\n\nPlease enter just the domain without https:// or trailing slash.\n\nExample: your-company.atlassian.net');
       return;
     }
 

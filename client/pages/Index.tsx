@@ -378,7 +378,7 @@ function ImportInfoCard() {
           <div className="flex-1">
             <h3 className="font-semibold mb-2">What will be imported?</h3>
             <p className="text-sm text-muted-foreground mb-3">
-              27 Demo InsureCo Jira tickets with the following fields:
+              17 Demo InsureCo Jira tickets (8 to sprint, 9 to backlog) with the following fields:
             </p>
             <div className="grid grid-cols-2 gap-2 text-sm mb-3">
               {['Title (Summary)', 'Description', 'Issue Type', 'Parent Links', 'Attachments', 'Story Points*'].map(field => (

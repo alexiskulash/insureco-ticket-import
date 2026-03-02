@@ -123,6 +123,19 @@ interface JiraIssue {
   storyPoints?: number;
 }
 
+// Only import these specific tickets (no epics)
+const TICKETS_TO_IMPORT = new Set([
+  // Sprint tickets
+  'DI-6', 'DI-7', 'DI-44', 'DI-2', 'DI-71', 'DI-123', 'DI-124', 'DI-127',
+  // Backlog tickets
+  'DI-72', 'DI-78', 'DI-9', 'DI-10', 'DI-67', 'DI-22', 'DI-45', 'DI-111', 'DI-126',
+]);
+
+// Tickets that go into the sprint (rest go to backlog)
+const SPRINT_TICKETS = new Set([
+  'DI-6', 'DI-7', 'DI-44', 'DI-2', 'DI-71', 'DI-123', 'DI-124', 'DI-127',
+]);
+
 // Map original Jira attachment filenames to publicly hosted URLs
 const HOSTED_ATTACHMENTS: Record<string, string> = {
   'image-20251204-235900.png': 'https://cdn.builder.io/api/v1/image/assets%2F15fef8bda062421996a6af7b8dd92729%2Fe09463724b4f4c759a39a5838348dc5e',
@@ -209,7 +222,7 @@ function parseTickets(): JiraIssue[] {
   const rows = parsed.data as any[];
 
   const issues: JiraIssue[] = rows
-    .filter(row => row.Summary && row['Issue Type'])
+    .filter(row => row.Summary && row['Issue Type'] && TICKETS_TO_IMPORT.has(row['Issue key']))
     .map(row => {
       let attachmentUrl = '';
       let attachmentFilename = '';
@@ -239,11 +252,10 @@ function parseTickets(): JiraIssue[] {
       };
     });
 
-  // Sort: Epics first, then regular issues, then child issues
-  const epics = issues.filter(i => i.issueType === 'Epic');
-  const regular = issues.filter(i => i.issueType !== 'Epic' && !i.parentKey);
+  // Sort: regular issues first, then child issues (no epics in this set)
+  const regular = issues.filter(i => !i.parentKey);
   const children = issues.filter(i => i.parentKey);
-  return [...epics, ...regular, ...children];
+  return [...regular, ...children];
 }
 
 // GET /api/tickets - Return the list of tickets to import
@@ -259,7 +271,7 @@ export const handleGetTickets: RequestHandler = (_req, res) => {
       parentKey: t.parentKey || null,
       hasAttachment: !!t.attachmentFilename,
       storyPoints: t.storyPoints ?? null,
-      sprint: t.sprint || null,
+      sprint: SPRINT_TICKETS.has(t.issueKey) ? 'sprint' : null,
     })),
   });
 };
@@ -462,8 +474,8 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       }
     }
 
-    // Assign to sprint if applicable (all non-Epic tickets)
-    if (sprintId && issue.issueType !== 'Epic') {
+    // Assign to sprint if this ticket is in the sprint set
+    if (sprintId && SPRINT_TICKETS.has(issue.issueKey)) {
       try {
         await jiraClient.post(`/rest/agile/1.0/sprint/${sprintId}/issue`, {
           issues: [newKey],

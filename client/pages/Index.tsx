@@ -77,7 +77,7 @@ export default function Index() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             config,
-            sprintName: 'Insureco: Master Sprint',
+            sprintName: 'InsureCo: Sprint',
           }),
         });
         const sprintData = await sprintRes.json();

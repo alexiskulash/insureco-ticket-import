@@ -288,7 +288,7 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
   });
 
   try {
-    const targetSprintName = sprintName || 'Insureco: Master Sprint';
+    const targetSprintName = sprintName || 'InsureCo: Sprint';
 
     // Step 1: Find the board for this project
     const boardsRes = await jiraClient.get('/rest/agile/1.0/board', {

@@ -27,7 +27,7 @@ export default function Index() {
     domain: '',
     email: '',
     apiToken: '',
-    targetProject: ''
+    targetProject: 'DEMO'
   });
 
   const [importing, setImporting] = useState(false);
@@ -292,14 +292,6 @@ function ConfigCard({
                 Atlassian Account Settings &rarr; Security &rarr; API tokens
               </a>
             </p>
-            <p className="text-amber-700 dark:text-amber-400">
-              <strong>Required permissions:</strong> Your Jira account must have:
-            </p>
-            <ul className="ml-4 space-y-0.5 text-amber-700 dark:text-amber-400">
-              <li>- Create issues in the target project</li>
-              <li>- Add attachments to issues</li>
-              <li>- Browse projects permission</li>
-            </ul>
           </div>
         </div>
 
@@ -349,6 +341,23 @@ function PrerequisitesAlert() {
                   </li>
                 </ul>
               </div>
+            </div>
+            <div>
+              <p className="font-semibold mb-1.5">Required Permissions:</p>
+              <ul className="space-y-1 ml-4">
+                <li className="flex items-start gap-2">
+                  <span>-</span>
+                  <span>Create issues in the target project</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span>-</span>
+                  <span>Add attachments to issues</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span>-</span>
+                  <span>Browse projects permission</span>
+                </li>
+              </ul>
             </div>
             <p className="text-xs text-amber-700 dark:text-amber-300">
               Issues with missing issue types will fail to import. Story points will be set if the field exists.

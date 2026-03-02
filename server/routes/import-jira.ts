@@ -169,7 +169,7 @@ export const handleImportJira: RequestHandler = async (req, res) => {
 
         if (!createResponse.ok) {
           const errorText = await createResponse.text();
-          errors.push(`Failed to create ${issue.summary}: ${errorText}`);
+          errors.push(`Error creating ${issue.summary}: ${createResponse.status} ${createResponse.statusText} - ${errorText}`);
           failed++;
           continue;
         }
@@ -218,7 +218,10 @@ export const handleImportJira: RequestHandler = async (req, res) => {
           }
         }
       } catch (error) {
-        errors.push(`Error creating ${issue.summary}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorDetails = error instanceof Error
+          ? `${error.name}: ${error.message}${error.stack ? '\nStack: ' + error.stack.split('\n').slice(0, 2).join('\n') : ''}`
+          : JSON.stringify(error);
+        errors.push(`Error creating ${issue.summary}: ${errorDetails}`);
         failed++;
       }
     }

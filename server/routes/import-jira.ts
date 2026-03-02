@@ -4,7 +4,7 @@ import axios from "axios";
 import FormData from "form-data";
 
 // Embedded CSV data from jira-insureco-export.csv (27 tickets total)
-const DEMO_CSV_DATA = String.raw`Summary,Issue key,Issue id,Issue Type,Status,Project key,Project name,Project type,Project lead,Project lead id,Project description,Priority,Resolution,Assignee,Assignee Id,Reporter,Reporter Id,Creator,Creator Id,Created,Updated,Last Viewed,Resolved,Due date,Votes,Description,Environment,Watchers,Watchers,Watchers Id,Watchers Id,Original estimate,Remaining Estimate,Time Spent,Work Ratio,Σ Original Estimate,Σ Remaining Estimate,Σ Time Spent,Security Level,Inward issue link (Cloners),Outward issue link (Cloners),Attachment,Custom field (Affected services),Custom field (Approvals),Custom field (Asset type),Custom field (Atlassian project),Custom field (Atlassian project status),Custom field (Beta?),Custom field (Bug Root Cause),Custom field (Business Impact),Custom field (Category),Custom field (Category),Custom field (Change completion date),Custom field (Change reason),Custom field (Change risk),Custom field (Change start date),Custom field (Change type),Custom field (Comments),Custom field (Confidence),Custom field (Content type),Custom field (Created Date),Custom field (Customer ( if any)),Custom field (Customer Importance ),Custom field (Customer Numeric),Custom field (Customer Segment),Custom field (Customer Segment Numeric),Custom field (Delivery progress),Custom field (Delivery status),Custom field (Department),Custom field (Department),Custom field (Designer),Custom field (Designs ready),Custom field (Development),Custom field (Documents),Custom field (Effort),Custom field (Enterprise),Custom field (Epic Color),Custom field (Epic Name),Custom field (Epic Status),Custom field (Escalation),Custom field (Estimate Confidence),Custom field (Estimated Size),Custom field (Feature Access),Custom field (Feature Instructions),Custom field (Feature Name),Custom field (Focus Areas),Custom field (GitHub Link),Custom field (Goals),Custom field (Idea archived),Custom field (Idea archived on),Custom field (Idea short description),Custom field (Impact),Custom field (Impact),Custom field (Impact score),Custom field (In Review Start Date),Custom field (Insights),Custom field (Issue at Customer Side?),Custom field (Issue color),Custom field (Last Updated ),Custom field (Linked items),Custom field (Locked forms),Custom field (Open forms),Custom field (Primary Audience),Custom field (Priority (Do Not Edit)),Custom field (Project overview key),Custom field (Project overview status),Custom field (Project start),Custom field (Project target),Custom field (Publication date),Custom field (QA Assignee),Custom field (QA Required),Custom field (QA Story Point),Custom field (Rank),Custom field (Relationship Health),Custom field (Relationship Health Numeric),Custom field (Request Type),Custom field (Request language),Custom field (Request participants),Custom field (Responders),Custom field (Roadmap),Custom field (SDK Gen),Satisfaction rating,Custom field (Satisfaction date),Custom field (Sentiment),Custom field (Severity),Custom field (Source),Custom field (Spec ready),Sprint,Custom field (Start date),Custom field (Steps To Reproduce),Custom field (Story Points),Custom field (Story point estimate),Custom field (Submitted forms),Custom field (Target date),Custom field (Target end),Custom field (Target start),Custom field (Team),Custom field (Time to done),Custom field (Time to first response),Custom field (Time to resolution),Custom field (Total forms),Custom field (Triaged),Custom field (Type of Request),Custom field (Value),Custom field (Vulnerability),Custom field (Work category),Custom field ([CHART] Date of First Response),Custom field ([CHART] Time in Status),Comment,Comment,Parent,Parent key,Parent summary,Status Category,Status Category Changed
+const DEMO_CSV_DATA = String.raw`Summary,Issue key,Issue id,Issue Type,Status,Project key,Project name,Project type,Project lead,Project lead id,Project description,Priority,Resolution,Assignee,Assignee Id,Reporter,Reporter Id,Creator,Creator Id,Created,Updated,Last Viewed,Resolved,Due date,Votes,Description,Environment,Watchers,Watchers,Watchers Id,Watchers Id,Original estimate,Remaining Estimate,Time Spent,Work Ratio,Σ Original Estimate,Σ Remaining Estimate,Σ Time Spent,Security Level,Inward issue link (Cloners),Outward issue link (Cloners),Attachment,Custom field (Affected services),Custom field (Approvals),Custom field (Asset type),Custom field (Atlassian project),Custom field (Atlassian project status),Custom field (Beta?),Custom field (Bug Root Cause),Custom field (Business Impact),Custom field (Category),Custom field (Category),Custom field (Change completion date),Custom field (Change reason),Custom field (Change risk),Custom field (Change start date),Custom field (Change type),Custom field (Comments),Custom field (Confidence),Custom field (Content type),Custom field (Created Date),Custom field (Customer ( if any)),Custom field (Customer Importance ),Custom field (Customer Numeric),Custom field (Customer Segment),Custom field (Customer Segment Numeric),Custom field (Delivery progress),Custom field (Delivery status),Custom field (Department),Custom field (Department),Custom field (Designer),Custom field (Designs ready),Custom field (Development),Custom field (Documents provided),Custom field (Due Date),Custom field (End date),Custom field (Entity type),Custom field (Epic Color),Custom field (Epic Link),Custom field (Epic Name),Custom field (Epic Status),Custom field (Feature/s),Custom field (Flagged),Custom field (Go-Live Date),Custom field (Impact),Custom field (Issue color),Custom field (Issue source),Custom field (Locked),Custom field (Migrated Id),Custom field (Migrated Key),Custom field (On Hold End Date),Custom field (On Hold Start Date),Custom field (Ongoing Cost to company),Custom field (Organizations),Custom field (Owner),Custom field (Pair/Mob Programming),Custom field (Parent Link),Custom field (Partner),Custom field (Pending Reason),Custom field (People involved in Incident),Custom field (Product Categorization),Custom field (Project status),Custom field (Rank),Custom field (Release Readiness Score),Custom field (Requested participant),Custom field (Responders),Custom field (Satisfaction),Custom field (Satisfaction date),Custom field (Severity),Custom field (Source),Custom field (Source Jira Instance),Custom field (Sprint),Custom field (Start date),Custom field (Start date),Custom field (Story Points),Custom field (Story point estimate),Custom field (Target end),Custom field (Target start),Custom field (Team),Custom field (Team Priority),Custom field (Tempo Account),Custom field (Test suites associated),Custom field (Time to first response),Custom field (Time to resolution),Custom field (URL Field),Custom field (Upfront Cost to company),Custom field (Urgency),Custom field (Velocity),Custom field (Work category),Custom field ([CHART] Date of First Response),Comment,Comment,Comment,Comment,Parent,Parent key,Parent summary,Parent status,Log Work
 BUG Date picker is displaying time on all dates,DI-127,46025,Bug,To Do,DI,Demo: InsureCo,software,Nick Nestle,712020:11f06c30-0697-401a-b9ef-2320eb2db3a9,,Medium,,,,Nick Nestle,712020:11f06c30-0697-401a-b9ef-2320eb2db3a9,Nick Nestle,712020:11f06c30-0697-401a-b9ef-2320eb2db3a9,25/Feb/26 10:17 PM,25/Feb/26 10:17 PM,02/Mar/26 12:39 AM,,,0,"project:demo-insurance-app
 
 In the Sign-Up form on the Personal Information step when you select a date of birth, after selecting the date picker displays the date and the also 00:00:00. See the screenshot. 
@@ -136,14 +136,12 @@ function convertToADF(text: string): object {
     return { type: 'doc', version: 1, content: [] };
   }
 
-  // Split text into paragraphs by double newlines
   const paragraphs = text.split(/\n\n+/);
 
   const content = paragraphs.map(paragraph => {
     const trimmed = paragraph.trim();
     if (!trimmed) return null;
 
-    // Check if this is a list (lines starting with * or -)
     const lines = trimmed.split('\n');
     const isUnorderedList = lines.every(l => l.trim().startsWith('* ') || l.trim().startsWith('- ') || l.trim() === '');
     const isOrderedList = lines.every(l => /^\d+\.\s/.test(l.trim()) || l.trim() === '');
@@ -178,14 +176,12 @@ function convertToADF(text: string): object {
       };
     }
 
-    // Regular paragraph - handle inline newlines
     const textContent: any[] = [];
     const inlineLines = trimmed.split('\n');
     inlineLines.forEach((line, idx) => {
       if (idx > 0) {
         textContent.push({ type: 'hardBreak' });
       }
-      // Strip Jira wiki markup for images like !image.png|...!
       const cleaned = line.replace(/!([^|!]+)\|[^!]*!/g, '[image: $1]');
       if (cleaned) {
         textContent.push({ type: 'text', text: cleaned });
@@ -207,229 +203,192 @@ function convertToADF(text: string): object {
   };
 }
 
-export const handleImportJira: RequestHandler = async (req, res) => {
-  console.log('Raw request body:', req.body);
-  console.log('Request body type:', typeof req.body);
-  console.log('Request body keys:', req.body ? Object.keys(req.body) : 'no body');
+// Parse CSV and return sorted issues
+function parseTickets(): JiraIssue[] {
+  const parsed = Papa.parse(DEMO_CSV_DATA, { header: true });
+  const rows = parsed.data as any[];
 
-  const config = req.body as JiraConfig;
-
-  console.log('Received import request with config:', JSON.stringify(config, null, 2));
-
-  // Set headers for SSE (Server-Sent Events)
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  const sendError = (message: string) => {
-    res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
-    res.end();
-  };
-
-  // Validate required fields
-  console.log('Validation check:', {
-    hasDomain: !!config.domain,
-    hasEmail: !!config.email,
-    hasApiToken: !!config.apiToken,
-    hasTargetProject: !!config.targetProject
-  });
-
-  if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
-    console.log('Validation failed - missing fields');
-    sendError('Missing required fields. Please fill in: Jira Domain, Email, API Token, and Target Project Key.');
-    return;
-  }
-
-  // Validate domain format (should not include https:// or trailing slash)
-  if (config.domain.includes('://') || config.domain.endsWith('/')) {
-    sendError('Invalid domain format. Please enter just the domain (e.g., your-company.atlassian.net) without https:// or trailing slash.');
-    return;
-  }
-
-  const sendProgress = (current: number, total: number, currentIssue: string) => {
-    res.write(`data: ${JSON.stringify({ type: 'progress', current, total, currentIssue })}\n\n`);
-  };
-
-  const sendResult = (result: any) => {
-    res.write(`data: ${JSON.stringify({ type: 'result', result })}\n\n`);
-  };
-
-  try {
-    // Parse the embedded CSV data
-    const parsed = Papa.parse(DEMO_CSV_DATA, { header: true });
-    const rows = parsed.data as any[];
-
-    // Parse issues from CSV
-    const issues: JiraIssue[] = rows
-      .filter(row => row.Summary && row['Issue Type'])
-      .map(row => {
-        // Parse attachment info
-        let attachmentUrl = '';
-        let attachmentFilename = '';
-        if (row.Attachment) {
-          const attachmentParts = row.Attachment.split(';');
-          if (attachmentParts.length >= 3) {
-            attachmentFilename = attachmentParts[2];
-            attachmentUrl = attachmentParts[3];
-          }
+  const issues: JiraIssue[] = rows
+    .filter(row => row.Summary && row['Issue Type'])
+    .map(row => {
+      let attachmentUrl = '';
+      let attachmentFilename = '';
+      if (row.Attachment) {
+        const attachmentParts = row.Attachment.split(';');
+        if (attachmentParts.length >= 3) {
+          attachmentFilename = attachmentParts[2];
+          attachmentUrl = attachmentParts[3];
         }
+      }
 
-        // Parse story points
-        const storyPoints = row['Custom field (Story Points)'] || row['Custom field (Story point estimate)'];
-        const parsedStoryPoints = storyPoints ? parseFloat(storyPoints) : undefined;
+      const storyPoints = row['Custom field (Story Points)'] || row['Custom field (Story point estimate)'];
+      const parsedStoryPoints = storyPoints ? parseFloat(storyPoints) : undefined;
 
-        return {
-          summary: row.Summary,
-          issueKey: row['Issue key'],
-          issueType: row['Issue Type'],
-          status: row.Status,
-          description: row.Description || '',
-          priority: row.Priority || 'Medium',
-          parentKey: row['Parent key'],
-          attachmentUrl,
-          attachmentFilename,
-          sprint: row.Sprint,
-          storyPoints: parsedStoryPoints,
-        };
-      });
-
-    // Sort issues: Epics first, then regular issues, then subtasks
-    const epics = issues.filter(i => i.issueType === 'Epic');
-    const regular = issues.filter(i => i.issueType !== 'Epic' && !i.parentKey);
-    const subtasks = issues.filter(i => i.parentKey);
-    const sortedIssues = [...epics, ...regular, ...subtasks];
-
-    const total = sortedIssues.length;
-    let created = 0;
-    let failed = 0;
-    const errors: string[] = [];
-    const issueKeyMap: Record<string, string> = {}; // Old key -> New key
-
-    // Create Basic Auth header
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    
-    // Create axios instance with default config
-    const jiraClient = axios.create({
-      baseURL: `https://${config.domain}`,
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000, // 30 second timeout
+      return {
+        summary: row.Summary,
+        issueKey: row['Issue key'],
+        issueType: row['Issue Type'],
+        status: row.Status,
+        description: row.Description || '',
+        priority: row.Priority || 'Medium',
+        parentKey: row['Parent key'],
+        attachmentUrl,
+        attachmentFilename,
+        sprint: row.Sprint,
+        storyPoints: parsedStoryPoints,
+      };
     });
 
-    // Import each issue
-    for (let i = 0; i < sortedIssues.length; i++) {
-      const issue = sortedIssues[i];
-      sendProgress(i, total, issue.summary);
+  // Sort: Epics first, then regular issues, then child issues
+  const epics = issues.filter(i => i.issueType === 'Epic');
+  const regular = issues.filter(i => i.issueType !== 'Epic' && !i.parentKey);
+  const children = issues.filter(i => i.parentKey);
+  return [...epics, ...regular, ...children];
+}
 
+// GET /api/tickets - Return the list of tickets to import
+export const handleGetTickets: RequestHandler = (_req, res) => {
+  const tickets = parseTickets();
+  res.json({
+    total: tickets.length,
+    tickets: tickets.map((t, index) => ({
+      index,
+      issueKey: t.issueKey,
+      summary: t.summary,
+      issueType: t.issueType,
+      parentKey: t.parentKey || null,
+      hasAttachment: !!t.attachmentFilename,
+      storyPoints: t.storyPoints ?? null,
+    })),
+  });
+};
+
+// POST /api/import-ticket - Import a single ticket
+export const handleImportTicket: RequestHandler = async (req, res) => {
+  const { ticketIndex, config, issueKeyMap } = req.body as {
+    ticketIndex: number;
+    config: JiraConfig;
+    issueKeyMap: Record<string, string>;
+  };
+
+  // Validate
+  if (!config?.domain || !config?.email || !config?.apiToken || !config?.targetProject) {
+    res.status(400).json({ error: 'Missing required config fields' });
+    return;
+  }
+
+  const tickets = parseTickets();
+  if (ticketIndex < 0 || ticketIndex >= tickets.length) {
+    res.status(400).json({ error: 'Invalid ticket index' });
+    return;
+  }
+
+  const issue = tickets[ticketIndex];
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+
+  const jiraClient = axios.create({
+    baseURL: `https://${config.domain}`,
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+  });
+
+  try {
+    // Build payload
+    const payload: any = {
+      fields: {
+        project: { key: config.targetProject },
+        summary: issue.summary,
+        issuetype: { name: issue.issueType },
+      },
+    };
+
+    if (issue.description) {
+      payload.fields.description = convertToADF(issue.description);
+    }
+
+    if (issue.priority) {
+      payload.fields.priority = { name: issue.priority };
+    }
+
+    // Add parent reference using the key map from client
+    if (issue.parentKey && issueKeyMap?.[issue.parentKey]) {
+      payload.fields.parent = { key: issueKeyMap[issue.parentKey] };
+    }
+
+    // Create the issue
+    const createResponse = await jiraClient.post('/rest/api/3/issue', payload);
+    const newKey = createResponse.data.key;
+
+    const warnings: string[] = [];
+
+    // Set story points separately
+    if (issue.storyPoints !== undefined) {
       try {
-        // Create issue payload
-        const payload: any = {
-          fields: {
-            project: {
-              key: config.targetProject,
-            },
-            summary: issue.summary,
-            issuetype: {
-              name: issue.issueType,
-            },
-          },
-        };
-
-        // Convert description to Atlassian Document Format (ADF)
-        if (issue.description) {
-          payload.fields.description = convertToADF(issue.description);
-        }
-
-        // Add priority if available
-        if (issue.priority) {
-          payload.fields.priority = { name: issue.priority };
-        }
-
-        // Add parent reference if this is a subtask
-        if (issue.parentKey && issueKeyMap[issue.parentKey]) {
-          payload.fields.parent = { key: issueKeyMap[issue.parentKey] };
-        }
-
-        // Create the issue (without story points first)
-        const createResponse = await jiraClient.post('/rest/api/3/issue', payload);
-        
-        const createdIssue = createResponse.data;
-        const newKey = createdIssue.key;
-        issueKeyMap[issue.issueKey] = newKey;
-        created++;
-
-        // Set story points via separate PUT if available
-        if (issue.storyPoints !== undefined) {
-          try {
-            await jiraClient.put(`/rest/api/3/issue/${newKey}`, {
-              fields: { customfield_10016: issue.storyPoints }
-            });
-          } catch {
-            // Story points field may not exist - skip silently
-          }
-        }
-
-        // Upload attachment if present
-        if (issue.attachmentFilename) {
-          try {
-            // Use hosted URL if available, otherwise fall back to original
-            const downloadUrl = HOSTED_ATTACHMENTS[issue.attachmentFilename] || issue.attachmentUrl;
-            if (!downloadUrl) throw new Error('No attachment URL available');
-
-            // Download the attachment
-            const attachmentResponse = await axios.get(downloadUrl, {
-              responseType: 'arraybuffer',
-              timeout: 30000,
-            });
-
-            // Create form data for upload
-            const form = new FormData();
-            form.append('file', Buffer.from(attachmentResponse.data), issue.attachmentFilename);
-
-            // Upload to Jira
-            await jiraClient.post(
-              `/rest/api/3/issue/${newKey}/attachments`,
-              form,
-              {
-                headers: {
-                  'X-Atlassian-Token': 'no-check',
-                  ...form.getHeaders(),
-                },
-              }
-            );
-          } catch (attachError) {
-            // Attachment upload failed, but issue was created
-            const errorMsg = attachError instanceof Error ? attachError.message : 'Unknown error';
-            errors.push(`Attachment upload failed for ${issue.summary}: ${errorMsg}`);
-          }
-        }
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          const status = error.response?.status || 'No response';
-          const statusText = error.response?.statusText || '';
-          const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-          errors.push(`Error creating ${issue.summary}: HTTP ${status} ${statusText} - ${errorData}`);
-        } else {
-          const errorDetails = error instanceof Error ? `${error.name}: ${error.message}` : JSON.stringify(error);
-          errors.push(`Error creating ${issue.summary}: ${errorDetails}`);
-        }
-        failed++;
+        await jiraClient.put(`/rest/api/3/issue/${newKey}`, {
+          fields: { customfield_10016: issue.storyPoints }
+        });
+      } catch {
+        warnings.push('Story points field not available - skipped');
       }
     }
 
-    sendProgress(total, total, 'Complete');
-    sendResult({
-      success: failed === 0,
-      created,
-      failed,
-      errors,
+    // Upload attachment
+    if (issue.attachmentFilename) {
+      try {
+        const downloadUrl = HOSTED_ATTACHMENTS[issue.attachmentFilename] || issue.attachmentUrl;
+        if (!downloadUrl) throw new Error('No attachment URL available');
+
+        const attachmentResponse = await axios.get(downloadUrl, {
+          responseType: 'arraybuffer',
+          timeout: 30000,
+        });
+
+        const form = new FormData();
+        form.append('file', Buffer.from(attachmentResponse.data), issue.attachmentFilename);
+
+        await jiraClient.post(
+          `/rest/api/3/issue/${newKey}/attachments`,
+          form,
+          {
+            headers: {
+              'X-Atlassian-Token': 'no-check',
+              ...form.getHeaders(),
+            },
+          }
+        );
+      } catch (attachError) {
+        const errorMsg = attachError instanceof Error ? attachError.message : 'Unknown error';
+        warnings.push(`Attachment upload failed: ${errorMsg}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      oldKey: issue.issueKey,
+      newKey,
+      summary: issue.summary,
+      warnings,
     });
   } catch (error) {
-    res.write(`data: ${JSON.stringify({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error occurred' })}\n\n`);
-  }
+    let errorMessage = 'Unknown error';
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status || 'No response';
+      const statusText = error.response?.statusText || '';
+      const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      errorMessage = `HTTP ${status} ${statusText} - ${errorData}`;
+    } else if (error instanceof Error) {
+      errorMessage = `${error.name}: ${error.message}`;
+    }
 
-  res.end();
+    res.status(500).json({
+      success: false,
+      oldKey: issue.issueKey,
+      summary: issue.summary,
+      error: errorMessage,
+    });
+  }
 };

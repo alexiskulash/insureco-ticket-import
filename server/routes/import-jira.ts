@@ -303,6 +303,7 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
         project: { key: config.targetProject },
         summary: issue.summary,
         issuetype: { name: issue.issueType },
+        assignee: null,
       },
     };
 

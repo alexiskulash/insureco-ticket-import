@@ -124,6 +124,10 @@ interface JiraIssue {
 }
 
 export const handleImportJira: RequestHandler = async (req, res) => {
+  console.log('Raw request body:', req.body);
+  console.log('Request body type:', typeof req.body);
+  console.log('Request body keys:', req.body ? Object.keys(req.body) : 'no body');
+
   const config = req.body as JiraConfig;
 
   console.log('Received import request with config:', JSON.stringify(config, null, 2));

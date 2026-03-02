@@ -47,6 +47,8 @@ export default function Index() {
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const handleImport = async () => {
+    console.log('Config state:', config);
+
     // Validate all required fields
     const missingFields = [];
     if (!config.domain) missingFields.push('Jira Domain');
@@ -55,6 +57,7 @@ export default function Index() {
     if (!config.targetProject) missingFields.push('Target Project Key');
 
     if (missingFields.length > 0) {
+      console.log('Missing fields:', missingFields);
       alert(`Please fill in the following required fields:\n\n${missingFields.join('\n')}`);
       return;
     }
@@ -68,6 +71,8 @@ export default function Index() {
     setImporting(true);
     setResult(null);
     setProgress({ total: 0, current: 0, currentIssue: '', status: 'running' });
+
+    console.log('Sending config to API:', config);
 
     try {
       const response = await fetch('/api/import-jira', {

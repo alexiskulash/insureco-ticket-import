@@ -126,6 +126,8 @@ interface JiraIssue {
 export const handleImportJira: RequestHandler = async (req, res) => {
   const config = req.body as JiraConfig;
 
+  console.log('Received import request with config:', JSON.stringify(config, null, 2));
+
   // Set headers for SSE (Server-Sent Events)
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -137,7 +139,15 @@ export const handleImportJira: RequestHandler = async (req, res) => {
   };
 
   // Validate required fields
+  console.log('Validation check:', {
+    hasDomain: !!config.domain,
+    hasEmail: !!config.email,
+    hasApiToken: !!config.apiToken,
+    hasTargetProject: !!config.targetProject
+  });
+
   if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
+    console.log('Validation failed - missing fields');
     sendError('Missing required fields. Please fill in: Jira Domain, Email, API Token, and Target Project Key.');
     return;
   }

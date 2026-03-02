@@ -1,61 +1,331 @@
-import { DemoResponse } from "@shared/api";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2 } from "lucide-react";
+
+interface JiraConfig {
+  domain: string;
+  email: string;
+  apiToken: string;
+  targetProject: string;
+}
+
+interface ImportProgress {
+  total: number;
+  current: number;
+  currentIssue: string;
+  status: 'idle' | 'running' | 'completed' | 'error';
+}
+
+interface ImportResult {
+  success: boolean;
+  created: number;
+  failed: number;
+  errors: string[];
+}
 
 export default function Index() {
-  const [exampleFromServer, setExampleFromServer] = useState("");
-  // Fetch users on component mount
-  useEffect(() => {
-    fetchDemo();
-  }, []);
+  const [config, setConfig] = useState<JiraConfig>({
+    domain: '',
+    email: '',
+    apiToken: '',
+    targetProject: ''
+  });
+  
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState<ImportProgress>({
+    total: 0,
+    current: 0,
+    currentIssue: '',
+    status: 'idle'
+  });
+  const [result, setResult] = useState<ImportResult | null>(null);
 
-  // Example of how to fetch data from the server (if needed)
-  const fetchDemo = async () => {
+  const handleImport = async () => {
+    if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    setImporting(true);
+    setResult(null);
+    setProgress({ total: 0, current: 0, currentIssue: '', status: 'running' });
+
     try {
-      const response = await fetch("/api/demo");
-      const data = (await response.json()) as DemoResponse;
-      setExampleFromServer(data.message);
+      const response = await fetch('/api/import-jira', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      });
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'progress') {
+                setProgress(prev => ({
+                  ...prev,
+                  total: data.total,
+                  current: data.current,
+                  currentIssue: data.currentIssue
+                }));
+              } else if (data.type === 'result') {
+                setResult(data.result);
+                setProgress(prev => ({ ...prev, status: 'completed' }));
+              } else if (data.type === 'error') {
+                setProgress(prev => ({ ...prev, status: 'error' }));
+                setResult({
+                  success: false,
+                  created: 0,
+                  failed: 0,
+                  errors: [data.message]
+                });
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.error("Error fetching hello:", error);
+      setProgress({ total: 0, current: 0, currentIssue: '', status: 'error' });
+      setResult({
+        success: false,
+        created: 0,
+        failed: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error occurred']
+      });
+    } finally {
+      setImporting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-      <div className="text-center">
-        {/* TODO: FUSION_GENERATION_APP_PLACEHOLDER replace everything here with the actual app! */}
-        <h1 className="text-2xl font-semibold text-slate-800 flex items-center justify-center gap-3">
-          <svg
-            className="animate-spin h-8 w-8 text-slate-400"
-            viewBox="0 0 50 50"
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4">
+            <Database className="w-8 h-8 text-primary" />
+          </div>
+          <h1 className="text-4xl font-bold text-foreground mb-3">
+            Jira Ticket Importer
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Import Demo InsureCo tickets to your Jira project
+          </p>
+        </div>
+
+        {/* Configuration Card */}
+        <Card className="mb-6 shadow-lg border-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Jira Configuration
+            </CardTitle>
+            <CardDescription>
+              Enter your Jira credentials and target project
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="domain" className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  Jira Domain
+                </Label>
+                <Input
+                  id="domain"
+                  placeholder="your-domain.atlassian.net"
+                  value={config.domain}
+                  onChange={(e) => setConfig({ ...config, domain: e.target.value })}
+                  disabled={importing}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={config.email}
+                  onChange={(e) => setConfig({ ...config, email: e.target.value })}
+                  disabled={importing}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="apiToken">API Token</Label>
+              <Input
+                id="apiToken"
+                type="password"
+                placeholder="Your Jira API token"
+                value={config.apiToken}
+                onChange={(e) => setConfig({ ...config, apiToken: e.target.value })}
+                disabled={importing}
+              />
+              <p className="text-xs text-muted-foreground">
+                Generate an API token from your{' '}
+                <a 
+                  href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Atlassian Account Settings
+                </a>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="targetProject">Target Project Key</Label>
+              <Input
+                id="targetProject"
+                placeholder="PROJ (e.g., DI, TEST, DEMO)"
+                value={config.targetProject}
+                onChange={(e) => setConfig({ ...config, targetProject: e.target.value.toUpperCase() })}
+                disabled={importing}
+              />
+              <p className="text-xs text-muted-foreground">
+                The project key where tickets will be imported
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Import Info Card */}
+        <Card className="mb-6 bg-accent/5 border-accent/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Upload className="w-5 h-5 text-accent mt-0.5" />
+              <div>
+                <h3 className="font-semibold mb-1">What will be imported?</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  This tool will import the Demo InsureCo Jira tickets including:
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span>Issue metadata</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span>Descriptions</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span>Attachments</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span>Parent-child links</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Import Button */}
+        <div className="flex justify-center mb-6">
+          <Button
+            onClick={handleImport}
+            disabled={importing || !config.domain || !config.email || !config.apiToken || !config.targetProject}
+            size="lg"
+            className="px-8 shadow-lg"
           >
-            <circle
-              className="opacity-30"
-              cx="25"
-              cy="25"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="5"
-              fill="none"
-            />
-            <circle
-              className="text-slate-600"
-              cx="25"
-              cy="25"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="5"
-              fill="none"
-              strokeDasharray="100"
-              strokeDashoffset="75"
-            />
-          </svg>
-          Generating your app...
-        </h1>
-        <p className="mt-4 text-slate-600 max-w-md">
-          Watch the chat on the left for updates that might need your attention
-          to finish generating
-        </p>
-        <p className="mt-4 hidden max-w-md">{exampleFromServer}</p>
+            {importing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4 mr-2" />
+                Start Import
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Progress */}
+        {progress.status !== 'idle' && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Import Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {progress.current} of {progress.total} tickets
+                  </span>
+                  <span className="font-medium">
+                    {progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}%
+                  </span>
+                </div>
+                <Progress value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0} />
+              </div>
+              {progress.currentIssue && (
+                <p className="text-sm text-muted-foreground">
+                  Current: {progress.currentIssue}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Results */}
+        {result && (
+          <Alert className={result.success ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
+            <div className="flex items-start gap-3">
+              {result.success ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+              ) : (
+                <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <AlertDescription>
+                  <p className="font-semibold mb-2">
+                    {result.success ? 'Import Completed!' : 'Import Failed'}
+                  </p>
+                  <div className="space-y-1 text-sm">
+                    <p>✅ Created: {result.created} tickets</p>
+                    {result.failed > 0 && <p>❌ Failed: {result.failed} tickets</p>}
+                  </div>
+                  {result.errors.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="font-medium text-sm">Errors:</p>
+                      {result.errors.map((error, i) => (
+                        <p key={i} className="text-xs text-red-700">{error}</p>
+                      ))}
+                    </div>
+                  )}
+                </AlertDescription>
+              </div>
+            </div>
+          </Alert>
+        )}
       </div>
     </div>
   );

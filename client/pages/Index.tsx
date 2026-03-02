@@ -175,7 +175,7 @@ export default function Index() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="apiToken">API Token</Label>
+              <Label htmlFor="apiToken">API Token (Standard API Token)</Label>
               <Input
                 id="apiToken"
                 type="password"
@@ -184,17 +184,30 @@ export default function Index() {
                 onChange={(e) => setConfig({ ...config, apiToken: e.target.value })}
                 disabled={importing}
               />
-              <p className="text-xs text-muted-foreground">
-                Generate an API token from your{' '}
-                <a 
-                  href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  Atlassian Account Settings
-                </a>
-              </p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  <strong>Token Type:</strong> Standard API Token (not OAuth)
+                </p>
+                <p>
+                  Generate from{' '}
+                  <a
+                    href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Atlassian Account Settings → Security → API tokens
+                  </a>
+                </p>
+                <p className="text-amber-700 dark:text-amber-400">
+                  <strong>Required permissions:</strong> Your Jira account must have:
+                </p>
+                <ul className="ml-4 space-y-0.5 text-amber-700 dark:text-amber-400">
+                  <li>• Create issues in the target project</li>
+                  <li>• Add attachments to issues</li>
+                  <li>• Browse projects permission</li>
+                </ul>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -223,44 +236,65 @@ export default function Index() {
                   Prerequisites Required
                 </p>
                 <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                  Before importing, ensure your target Jira project has:
+                  Before importing, ensure the following requirements are met:
                 </p>
-                <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1.5 mb-3">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1">•</span>
-                    <span>
-                      <strong>Issue Types:</strong> Bug, Epic, Story, Task{' '}
-                      <a
-                        href="https://support.atlassian.com/jira-cloud-administration/docs/add-edit-and-delete-an-issue-type/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:text-amber-900 dark:hover:text-amber-100"
-                      >
-                        (How to add issue types)
-                      </a>
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1">•</span>
-                    <span>
-                      <strong>Story Points field</strong> (optional, for preserving estimates){' '}
-                      <a
-                        href="https://support.atlassian.com/jira-cloud-administration/docs/create-a-custom-field/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:text-amber-900 dark:hover:text-amber-100"
-                      >
-                        (How to create custom fields)
-                      </a>
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-1">•</span>
-                    <span>
-                      <strong>Attachments enabled</strong> for the project (usually on by default)
-                    </span>
-                  </li>
-                </ul>
+                <div className="text-sm text-amber-800 dark:text-amber-200 space-y-3 mb-3">
+                  <div>
+                    <p className="font-semibold mb-1.5">Your Jira User Account Must Have:</p>
+                    <ul className="space-y-1 ml-4">
+                      <li className="flex items-start gap-2">
+                        <span>•</span>
+                        <span><strong>Create issues</strong> permission in the target project</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span>•</span>
+                        <span><strong>Add attachments</strong> permission</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span>•</span>
+                        <span><strong>Browse projects</strong> permission</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold mb-1.5">Your Target Project Must Have:</p>
+                    <ul className="space-y-1.5 ml-4">
+                      <li className="flex items-start gap-2">
+                        <span>•</span>
+                        <span>
+                          <strong>Issue Types:</strong> Bug, Epic, Story, Task{' '}
+                          <a
+                            href="https://support.atlassian.com/jira-cloud-administration/docs/add-edit-and-delete-an-issue-type/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline hover:text-amber-900 dark:hover:text-amber-100"
+                          >
+                            (How to add)
+                          </a>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span>•</span>
+                        <span>
+                          <strong>Story Points field</strong> (optional){' '}
+                          <a
+                            href="https://support.atlassian.com/jira-cloud-administration/docs/create-a-custom-field/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline hover:text-amber-900 dark:hover:text-amber-100"
+                          >
+                            (How to create)
+                          </a>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span>•</span>
+                        <span><strong>Attachments enabled</strong> (usually on by default)</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
                 <p className="text-xs text-amber-700 dark:text-amber-300">
                   Issues with missing issue types will fail to import. Story Points will be skipped if the field doesn't exist.
                 </p>

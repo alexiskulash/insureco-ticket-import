@@ -218,19 +218,27 @@ export default function Index() {
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
               <Upload className="w-5 h-5 text-accent mt-0.5" />
-              <div>
-                <h3 className="font-semibold mb-1">What will be imported?</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  This tool will import the Demo InsureCo Jira tickets including:
+              <div className="flex-1">
+                <h3 className="font-semibold mb-2">What will be imported?</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  This tool will import the Demo InsureCo Jira tickets with the following fields:
                 </p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    <span>Issue metadata</span>
+                    <span>Title (Summary)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    <span>Descriptions</span>
+                    <span>Description</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span>Issue Type</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span>Parent Links</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
@@ -238,9 +246,15 @@ export default function Index() {
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    <span>Parent-child links</span>
+                    <span>Story Points*</span>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground border-t border-accent/20 pt-2">
+                  *Story Points use field ID customfield_10016. If your Jira instance uses a different field ID, you may need to adjust the code or manually update story points after import.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  **Sprint assignment requires sprint IDs, which vary per project. Issues will need to be manually added to sprints after import.
+                </p>
               </div>
             </div>
           </CardContent>

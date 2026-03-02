@@ -20,6 +20,8 @@ interface JiraIssue {
   parentKey?: string;
   attachmentUrl?: string;
   attachmentFilename?: string;
+  sprint?: string;
+  storyPoints?: number;
 }
 
 export const handleImportJira: RequestHandler = async (req, res) => {
@@ -71,6 +73,10 @@ export const handleImportJira: RequestHandler = async (req, res) => {
           }
         }
 
+        // Parse story points
+        const storyPoints = row['Custom field (Story Points)'] || row['Custom field (Story point estimate)'];
+        const parsedStoryPoints = storyPoints ? parseFloat(storyPoints) : undefined;
+
         return {
           summary: row.Summary,
           issueKey: row['Issue key'],
@@ -81,6 +87,8 @@ export const handleImportJira: RequestHandler = async (req, res) => {
           parentKey: row['Parent key'],
           attachmentUrl,
           attachmentFilename,
+          sprint: row.Sprint,
+          storyPoints: parsedStoryPoints,
         };
       });
 
@@ -133,6 +141,18 @@ export const handleImportJira: RequestHandler = async (req, res) => {
         if (issue.parentKey && issueKeyMap[issue.parentKey]) {
           payload.fields.parent = { key: issueKeyMap[issue.parentKey] };
         }
+
+        // Add story points if available (note: field ID may vary by Jira instance)
+        // Common field IDs: customfield_10016, customfield_10026
+        if (issue.storyPoints !== undefined) {
+          // Try common story points field - users may need to adjust this
+          payload.fields.customfield_10016 = issue.storyPoints;
+        }
+
+        // Add sprint if available (note: field ID may vary by Jira instance)
+        // Sprint field typically requires the sprint ID, not name
+        // For now, we'll skip sprint as it requires sprint ID lookup
+        // Users can manually add issues to sprints after import
 
         // Create the issue
         const createResponse = await fetch(

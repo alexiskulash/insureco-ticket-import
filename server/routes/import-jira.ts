@@ -123,6 +123,13 @@ interface JiraIssue {
   storyPoints?: number;
 }
 
+// Map original Jira attachment filenames to publicly hosted URLs
+const HOSTED_ATTACHMENTS: Record<string, string> = {
+  'image-20251204-235900.png': 'https://cdn.builder.io/api/v1/image/assets%2F15fef8bda062421996a6af7b8dd92729%2Fe09463724b4f4c759a39a5838348dc5e',
+  'image-20251211-182841.png': 'https://cdn.builder.io/api/v1/image/assets%2F15fef8bda062421996a6af7b8dd92729%2Fcd6ccae4baf946c2add26ca93971c0de',
+  'image-20260217-141639.png': 'https://cdn.builder.io/api/v1/image/assets%2F15fef8bda062421996a6af7b8dd92729%2F36510c9f2d6140bf87da4fc08f9cf082',
+};
+
 // Convert plain text description to Atlassian Document Format (ADF)
 function convertToADF(text: string): object {
   if (!text) {
@@ -366,10 +373,14 @@ export const handleImportJira: RequestHandler = async (req, res) => {
         }
 
         // Upload attachment if present
-        if (issue.attachmentUrl && issue.attachmentFilename) {
+        if (issue.attachmentFilename) {
           try {
+            // Use hosted URL if available, otherwise fall back to original
+            const downloadUrl = HOSTED_ATTACHMENTS[issue.attachmentFilename] || issue.attachmentUrl;
+            if (!downloadUrl) throw new Error('No attachment URL available');
+
             // Download the attachment
-            const attachmentResponse = await axios.get(issue.attachmentUrl, {
+            const attachmentResponse = await axios.get(downloadUrl, {
               responseType: 'arraybuffer',
               timeout: 30000,
             });

@@ -288,6 +288,8 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
   });
 
   try {
+    const targetSprintName = sprintName || 'Insureco: Master Sprint';
+
     // Step 1: Find the board for this project
     const boardsRes = await jiraClient.get('/rest/agile/1.0/board', {
       params: { projectKeyOrId: config.targetProject },
@@ -303,9 +305,34 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
     const scrumBoard = boards.find((b: any) => b.type === 'scrum') || boards[0];
     const boardId = scrumBoard.id;
 
-    // Step 2: Create the sprint
+    // Step 2: Check for existing sprints on this board
+    let existingSprint: any = null;
+    try {
+      const sprintsRes = await jiraClient.get(`/rest/agile/1.0/board/${boardId}/sprint`, {
+        params: { state: 'active,future' },
+      });
+      const sprints = sprintsRes.data.values || [];
+      existingSprint = sprints.find((s: any) => s.name === targetSprintName);
+    } catch {
+      // If listing sprints fails, we'll just create a new one
+    }
+
+    if (existingSprint) {
+      // Use the existing sprint
+      res.json({
+        success: true,
+        sprintId: existingSprint.id,
+        sprintName: existingSprint.name,
+        boardId,
+        boardName: scrumBoard.name,
+        existing: true,
+      });
+      return;
+    }
+
+    // Step 3: Create new sprint only if none exists
     const sprintRes = await jiraClient.post('/rest/agile/1.0/sprint', {
-      name: sprintName || 'Insureco: Master Sprint',
+      name: targetSprintName,
       originBoardId: boardId,
     });
 
@@ -315,6 +342,7 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
       sprintName: sprintRes.data.name,
       boardId,
       boardName: scrumBoard.name,
+      existing: false,
     });
   } catch (error) {
     let errorMessage = 'Unknown error';
@@ -434,8 +462,8 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       }
     }
 
-    // Assign to sprint if applicable
-    if (sprintId && issue.sprint) {
+    // Assign to sprint if applicable (all non-Epic tickets)
+    if (sprintId && issue.issueType !== 'Epic') {
       try {
         await jiraClient.post(`/rest/agile/1.0/sprint/${sprintId}/issue`, {
           issues: [newKey],

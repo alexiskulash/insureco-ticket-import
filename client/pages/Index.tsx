@@ -68,28 +68,24 @@ export default function Index() {
       const { total, tickets } = await ticketsRes.json();
       setProgressTotal(total);
 
-      // Step 2: Create sprint
+      // Step 2: Find existing sprint or create new one
       let sprintId: number | undefined;
-      const hasSprintTickets = tickets.some((t: any) => t.sprint);
-
-      if (hasSprintTickets) {
-        setCurrentTicket('Creating sprint...');
-        try {
-          const sprintRes = await fetch('/api/setup-sprint', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              config,
-              sprintName: 'Insureco: Master Sprint',
-            }),
-          });
-          const sprintData = await sprintRes.json();
-          if (sprintData.success) {
-            sprintId = sprintData.sprintId;
-          }
-        } catch {
-          // Sprint creation failed - continue without sprint assignment
+      setCurrentTicket('Setting up sprint...');
+      try {
+        const sprintRes = await fetch('/api/setup-sprint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            config,
+            sprintName: 'Insureco: Master Sprint',
+          }),
+        });
+        const sprintData = await sprintRes.json();
+        if (sprintData.success) {
+          sprintId = sprintData.sprintId;
         }
+      } catch {
+        // Sprint setup failed - continue without sprint assignment
       }
 
       // Step 3: Import each ticket one at a time

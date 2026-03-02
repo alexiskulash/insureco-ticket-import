@@ -123,6 +123,83 @@ interface JiraIssue {
   storyPoints?: number;
 }
 
+// Convert plain text description to Atlassian Document Format (ADF)
+function convertToADF(text: string): object {
+  if (!text) {
+    return { type: 'doc', version: 1, content: [] };
+  }
+
+  // Split text into paragraphs by double newlines
+  const paragraphs = text.split(/\n\n+/);
+
+  const content = paragraphs.map(paragraph => {
+    const trimmed = paragraph.trim();
+    if (!trimmed) return null;
+
+    // Check if this is a list (lines starting with * or -)
+    const lines = trimmed.split('\n');
+    const isUnorderedList = lines.every(l => l.trim().startsWith('* ') || l.trim().startsWith('- ') || l.trim() === '');
+    const isOrderedList = lines.every(l => /^\d+\.\s/.test(l.trim()) || l.trim() === '');
+
+    if (isUnorderedList && lines.some(l => l.trim().startsWith('* ') || l.trim().startsWith('- '))) {
+      return {
+        type: 'bulletList',
+        content: lines
+          .filter(l => l.trim())
+          .map(l => ({
+            type: 'listItem',
+            content: [{
+              type: 'paragraph',
+              content: [{ type: 'text', text: l.trim().replace(/^[*-]\s/, '') }]
+            }]
+          }))
+      };
+    }
+
+    if (isOrderedList && lines.some(l => /^\d+\.\s/.test(l.trim()))) {
+      return {
+        type: 'orderedList',
+        content: lines
+          .filter(l => l.trim())
+          .map(l => ({
+            type: 'listItem',
+            content: [{
+              type: 'paragraph',
+              content: [{ type: 'text', text: l.trim().replace(/^\d+\.\s/, '') }]
+            }]
+          }))
+      };
+    }
+
+    // Regular paragraph - handle inline newlines
+    const textContent: any[] = [];
+    const inlineLines = trimmed.split('\n');
+    inlineLines.forEach((line, idx) => {
+      if (idx > 0) {
+        textContent.push({ type: 'hardBreak' });
+      }
+      // Strip Jira wiki markup for images like !image.png|...!
+      const cleaned = line.replace(/!([^|!]+)\|[^!]*!/g, '[image: $1]');
+      if (cleaned) {
+        textContent.push({ type: 'text', text: cleaned });
+      }
+    });
+
+    if (textContent.length === 0) return null;
+
+    return {
+      type: 'paragraph',
+      content: textContent,
+    };
+  }).filter(Boolean);
+
+  return {
+    type: 'doc',
+    version: 1,
+    content: content.length > 0 ? content : [{ type: 'paragraph', content: [{ type: 'text', text: ' ' }] }],
+  };
+}
+
 export const handleImportJira: RequestHandler = async (req, res) => {
   console.log('Raw request body:', req.body);
   console.log('Request body type:', typeof req.body);
@@ -248,12 +325,16 @@ export const handleImportJira: RequestHandler = async (req, res) => {
               key: config.targetProject,
             },
             summary: issue.summary,
-            description: issue.description,
             issuetype: {
               name: issue.issueType,
             },
           },
         };
+
+        // Convert description to Atlassian Document Format (ADF)
+        if (issue.description) {
+          payload.fields.description = convertToADF(issue.description);
+        }
 
         // Add priority if available
         if (issue.priority) {
@@ -265,20 +346,24 @@ export const handleImportJira: RequestHandler = async (req, res) => {
           payload.fields.parent = { key: issueKeyMap[issue.parentKey] };
         }
 
-        // Add story points if available (note: field ID may vary by Jira instance)
-        // Common field IDs: customfield_10016, customfield_10026
-        if (issue.storyPoints !== undefined) {
-          // Try common story points field - users may need to adjust this
-          payload.fields.customfield_10016 = issue.storyPoints;
-        }
-
-        // Create the issue
+        // Create the issue (without story points first)
         const createResponse = await jiraClient.post('/rest/api/3/issue', payload);
         
         const createdIssue = createResponse.data;
         const newKey = createdIssue.key;
         issueKeyMap[issue.issueKey] = newKey;
         created++;
+
+        // Set story points via separate PUT if available
+        if (issue.storyPoints !== undefined) {
+          try {
+            await jiraClient.put(`/rest/api/3/issue/${newKey}`, {
+              fields: { customfield_10016: issue.storyPoints }
+            });
+          } catch {
+            // Story points field may not exist - skip silently
+          }
+        }
 
         // Upload attachment if present
         if (issue.attachmentUrl && issue.attachmentFilename) {

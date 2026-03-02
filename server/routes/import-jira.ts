@@ -259,16 +259,83 @@ export const handleGetTickets: RequestHandler = (_req, res) => {
       parentKey: t.parentKey || null,
       hasAttachment: !!t.attachmentFilename,
       storyPoints: t.storyPoints ?? null,
+      sprint: t.sprint || null,
     })),
   });
 };
 
+// POST /api/setup-sprint - Find board and create sprint
+export const handleSetupSprint: RequestHandler = async (req, res) => {
+  const { config, sprintName } = req.body as {
+    config: JiraConfig;
+    sprintName: string;
+  };
+
+  if (!config?.domain || !config?.email || !config?.apiToken || !config?.targetProject) {
+    res.status(400).json({ error: 'Missing required config fields' });
+    return;
+  }
+
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+  const jiraClient = axios.create({
+    baseURL: `https://${config.domain}`,
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+  });
+
+  try {
+    // Step 1: Find the board for this project
+    const boardsRes = await jiraClient.get('/rest/agile/1.0/board', {
+      params: { projectKeyOrId: config.targetProject },
+    });
+
+    const boards = boardsRes.data.values;
+    if (!boards || boards.length === 0) {
+      res.status(404).json({ error: 'No board found for this project. Please create a Scrum board in Jira first.' });
+      return;
+    }
+
+    // Use the first Scrum board, or fall back to any board
+    const scrumBoard = boards.find((b: any) => b.type === 'scrum') || boards[0];
+    const boardId = scrumBoard.id;
+
+    // Step 2: Create the sprint
+    const sprintRes = await jiraClient.post('/rest/agile/1.0/sprint', {
+      name: sprintName || 'Insureco: Master Sprint',
+      originBoardId: boardId,
+    });
+
+    res.json({
+      success: true,
+      sprintId: sprintRes.data.id,
+      sprintName: sprintRes.data.name,
+      boardId,
+      boardName: scrumBoard.name,
+    });
+  } catch (error) {
+    let errorMessage = 'Unknown error';
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status || 'No response';
+      const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      errorMessage = `HTTP ${status} - ${errorData}`;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    res.status(500).json({ error: errorMessage });
+  }
+};
+
 // POST /api/import-ticket - Import a single ticket
 export const handleImportTicket: RequestHandler = async (req, res) => {
-  const { ticketIndex, config, issueKeyMap } = req.body as {
+  const { ticketIndex, config, issueKeyMap, sprintId } = req.body as {
     ticketIndex: number;
     config: JiraConfig;
     issueKeyMap: Record<string, string>;
+    sprintId?: number;
   };
 
   // Validate
@@ -364,6 +431,17 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       } catch (attachError) {
         const errorMsg = attachError instanceof Error ? attachError.message : 'Unknown error';
         warnings.push(`Attachment upload failed: ${errorMsg}`);
+      }
+    }
+
+    // Assign to sprint if applicable
+    if (sprintId && issue.sprint) {
+      try {
+        await jiraClient.post(`/rest/agile/1.0/sprint/${sprintId}/issue`, {
+          issues: [newKey],
+        });
+      } catch {
+        warnings.push('Could not assign to sprint - skipped');
       }
     }
 

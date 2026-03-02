@@ -68,7 +68,31 @@ export default function Index() {
       const { total, tickets } = await ticketsRes.json();
       setProgressTotal(total);
 
-      // Step 2: Import each ticket one at a time
+      // Step 2: Create sprint
+      let sprintId: number | undefined;
+      const hasSprintTickets = tickets.some((t: any) => t.sprint);
+
+      if (hasSprintTickets) {
+        setCurrentTicket('Creating sprint...');
+        try {
+          const sprintRes = await fetch('/api/setup-sprint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              config,
+              sprintName: 'Insureco: Master Sprint',
+            }),
+          });
+          const sprintData = await sprintRes.json();
+          if (sprintData.success) {
+            sprintId = sprintData.sprintId;
+          }
+        } catch {
+          // Sprint creation failed - continue without sprint assignment
+        }
+      }
+
+      // Step 3: Import each ticket one at a time
       let created = 0;
       let failed = 0;
       const errors: string[] = [];
@@ -88,6 +112,7 @@ export default function Index() {
               ticketIndex: ticket.index,
               config,
               issueKeyMap,
+              sprintId,
             }),
           });
 

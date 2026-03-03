@@ -400,7 +400,7 @@ function PrerequisitesAlert() {
               </div>
             </div>
             <div>
-              <p className="font-semibold mb-1.5">Required Permissions:</p>
+              <p className="font-semibold mb-1.5">Required Permissions (for the Jira account above):</p>
               <ul className="space-y-1 ml-4">
                 <li className="flex items-start gap-2">
                   <span>-</span>

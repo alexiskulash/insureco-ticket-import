@@ -22,13 +22,39 @@ interface ImportResult {
   warnings: string[];
 }
 
+const STORAGE_KEY = 'jira-importer-config';
+
+function loadSavedConfig(): JiraConfig {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        domain: parsed.domain || '',
+        email: parsed.email || '',
+        apiToken: parsed.apiToken || '',
+        targetProject: parsed.targetProject || 'DEMO',
+      };
+    }
+  } catch {}
+  return { domain: '', email: '', apiToken: '', targetProject: 'DEMO' };
+}
+
+function saveConfig(config: JiraConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch {}
+}
+
+function clearSavedConfig() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {}
+}
+
 export default function Index() {
-  const [config, setConfig] = useState<JiraConfig>({
-    domain: '',
-    email: '',
-    apiToken: '',
-    targetProject: 'DEMO'
-  });
+  const [config, setConfig] = useState<JiraConfig>(loadSavedConfig);
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem(STORAGE_KEY));
 
   const [importing, setImporting] = useState(false);
   const [progressTotal, setProgressTotal] = useState(0);
@@ -52,6 +78,13 @@ export default function Index() {
     if (config.domain.includes('://') || config.domain.endsWith('/')) {
       alert('Invalid Jira Domain format.\n\nPlease enter just the domain without https:// or trailing slash.\n\nExample: your-company.atlassian.net');
       return;
+    }
+
+    // Save or clear config based on remember me
+    if (rememberMe) {
+      saveConfig(config);
+    } else {
+      clearSavedConfig();
     }
 
     setImporting(true);
@@ -152,7 +185,7 @@ export default function Index() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <Header />
-        <ConfigCard config={config} setConfig={setConfig} importing={importing} />
+        <ConfigCard config={config} setConfig={setConfig} importing={importing} rememberMe={rememberMe} setRememberMe={setRememberMe} />
         <PrerequisitesAlert />
         <ImportInfoCard />
 
@@ -224,10 +257,14 @@ function ConfigCard({
   config,
   setConfig,
   importing,
+  rememberMe,
+  setRememberMe,
 }: {
   config: JiraConfig;
   setConfig: (c: JiraConfig) => void;
   importing: boolean;
+  rememberMe: boolean;
+  setRememberMe: (v: boolean) => void;
 }) {
   return (
     <Card className="mb-6 shadow-lg border-2">
@@ -305,6 +342,23 @@ function ConfigCard({
             disabled={importing}
           />
           <p className="text-xs text-muted-foreground">The project key where tickets will be imported</p>
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t">
+          <input
+            type="checkbox"
+            id="rememberMe"
+            checked={rememberMe}
+            onChange={(e) => {
+              setRememberMe(e.target.checked);
+              if (!e.target.checked) clearSavedConfig();
+            }}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+            Remember my credentials
+          </Label>
+          <span className="text-xs text-muted-foreground">(saved in browser only)</span>
         </div>
       </CardContent>
     </Card>

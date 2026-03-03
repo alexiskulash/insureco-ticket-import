@@ -453,7 +453,7 @@ function ImportInfoCard() {
               17 Demo InsureCo Jira tickets (8 to sprint, 9 to backlog) with the following fields:
             </p>
             <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-              {['Title (Summary)', 'Description', 'Issue Type', 'Parent Links', 'Attachments', 'Story Points*'].map(field => (
+              {['Title (Summary)', 'Description', 'Issue Type', 'Parent Epics', 'Attachments', 'Story Points', 'Priority', 'Workflow Status', 'Sprint Assignment'].map(field => (
                 <div key={field} className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
                   <span>{field}</span>

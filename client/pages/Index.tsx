@@ -103,6 +103,7 @@ export default function Index() {
 
       // Step 2: Find existing sprint or create new one
       let sprintId: number | undefined;
+      let componentsAvailable = true;
       setCurrentTicket('Setting up sprint...');
       try {
         const sprintRes = await fetch('/api/setup-sprint', {
@@ -116,6 +117,7 @@ export default function Index() {
         const sprintData = await sprintRes.json();
         if (sprintData.success) {
           sprintId = sprintData.sprintId;
+          componentsAvailable = sprintData.componentsAvailable !== false;
         }
       } catch {
         // Sprint setup failed - continue without sprint assignment
@@ -142,6 +144,7 @@ export default function Index() {
               config,
               issueKeyMap,
               sprintId,
+              componentsAvailable,
             }),
           });
 

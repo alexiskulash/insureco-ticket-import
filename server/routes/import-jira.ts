@@ -340,15 +340,27 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
     const boardId = scrumBoard.id;
 
     // Step 2: Ensure project components exist (Strategic Work, Enhancements, Support)
+    let componentsAvailable = true;
     const componentNames = [...new Set(Object.values(TICKET_COMPONENTS))];
+
+    // First check if components already exist
+    let existingComponents: string[] = [];
+    try {
+      const projRes = await jiraClient.get(`/rest/api/3/project/${config.targetProject}/components`);
+      existingComponents = (projRes.data || []).map((c: any) => c.name);
+    } catch {
+      // If we can't list components, we'll try creating them
+    }
+
     for (const name of componentNames) {
+      if (existingComponents.includes(name)) continue;
       try {
         await jiraClient.post(`/rest/api/3/component`, {
           name,
           project: config.targetProject,
         });
       } catch {
-        // Component likely already exists — safe to ignore
+        componentsAvailable = false;
       }
     }
 
@@ -365,7 +377,6 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
     }
 
     if (existingSprint) {
-      // Use the existing sprint
       res.json({
         success: true,
         sprintId: existingSprint.id,
@@ -373,11 +384,12 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
         boardId,
         boardName: scrumBoard.name,
         existing: true,
+        componentsAvailable,
       });
       return;
     }
 
-    // Step 3: Create new sprint only if none exists
+    // Step 4: Create new sprint only if none exists
     const sprintRes = await jiraClient.post('/rest/agile/1.0/sprint', {
       name: targetSprintName,
       originBoardId: boardId,
@@ -390,6 +402,7 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
       boardId,
       boardName: scrumBoard.name,
       existing: false,
+      componentsAvailable,
     });
   } catch (error) {
     let errorMessage = 'Unknown error';
@@ -406,11 +419,12 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
 
 // POST /api/import-ticket - Import a single ticket
 export const handleImportTicket: RequestHandler = async (req, res) => {
-  const { ticketIndex, config, issueKeyMap, sprintId } = req.body as {
+  const { ticketIndex, config, issueKeyMap, sprintId, componentsAvailable } = req.body as {
     ticketIndex: number;
     config: JiraConfig;
     issueKeyMap: Record<string, string>;
     sprintId?: number;
+    componentsAvailable?: boolean;
   };
 
   // Validate
@@ -449,8 +463,8 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       },
     };
 
-    // Set component if available (components support spaces, labels don't)
-    if (issue.component) {
+    // Set component if available and user has permission
+    if (issue.component && componentsAvailable !== false) {
       payload.fields.components = [{ name: issue.component }];
     }
 
@@ -467,8 +481,18 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       payload.fields.parent = { key: issueKeyMap[issue.parentKey] };
     }
 
-    // Create the issue
-    const createResponse = await jiraClient.post('/rest/api/3/issue', payload);
+    // Create the issue — retry without components if it fails
+    let createResponse;
+    try {
+      createResponse = await jiraClient.post('/rest/api/3/issue', payload);
+    } catch (createError) {
+      if (axios.isAxiosError(createError) && createError.response?.data?.errors?.components && payload.fields.components) {
+        delete payload.fields.components;
+        createResponse = await jiraClient.post('/rest/api/3/issue', payload);
+      } else {
+        throw createError;
+      }
+    }
     const newKey = createResponse.data.key;
 
     const warnings: string[] = [];

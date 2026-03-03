@@ -159,6 +159,34 @@ const TICKET_EPICS: Record<string, string> = {
 // Epic names that need to be created/found
 const EPIC_NAMES = ['Strategic Work', 'Enhancements', 'Support'];
 
+// Epic colors (Jira color keys)
+const EPIC_COLORS: Record<string, string> = {
+  'Strategic Work': 'blue',
+  'Enhancements': 'orange',
+  'Support': 'purple',
+};
+
+// Story points per ticket (CSV column parsing is unreliable due to duplicate headers)
+const TICKET_STORY_POINTS: Record<string, number> = {
+  'DI-6': 40,
+  'DI-7': 40,
+  'DI-9': 80,
+  'DI-10': 4,
+  'DI-2': 40,
+  'DI-44': 40,
+  'DI-71': 4,
+  'DI-72': 40,
+  'DI-78': 20,
+  'DI-67': 10,
+  'DI-22': 4,
+  'DI-45': 12,
+  'DI-111': 0,
+  'DI-123': 4,
+  'DI-124': 4,
+  'DI-126': 4,
+  'DI-127': 4,
+};
+
 // Map original Jira attachment filenames to publicly hosted URLs
 const HOSTED_ATTACHMENTS: Record<string, string> = {
   'image-20251204-235900.png': 'https://cdn.builder.io/api/v1/image/assets%2F15fef8bda062421996a6af7b8dd92729%2Fe09463724b4f4c759a39a5838348dc5e',
@@ -257,8 +285,7 @@ function parseTickets(): JiraIssue[] {
         }
       }
 
-      const storyPoints = row['Custom field (Story Points)'] || row['Custom field (Story point estimate)'];
-      const parsedStoryPoints = storyPoints ? parseFloat(storyPoints) : undefined;
+      const parsedStoryPoints = TICKET_STORY_POINTS[row['Issue key']];
 
       const issueKey = row['Issue key'];
       return {
@@ -381,6 +408,20 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
         epicKeyMap[epicName] = createRes.data.key;
       } catch {
         // Epic creation failed — tickets will import without parent
+      }
+    }
+
+    // Set epic colors
+    for (const epicName of EPIC_NAMES) {
+      const epicKey = epicKeyMap[epicName];
+      const color = EPIC_COLORS[epicName];
+      if (!epicKey || !color) continue;
+      try {
+        await jiraClient.put(`/rest/api/3/issue/${epicKey}`, {
+          fields: { customfield_10017: color },
+        });
+      } catch {
+        // Color field may not exist or use a different ID — skip
       }
     }
 

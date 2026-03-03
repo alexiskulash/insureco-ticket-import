@@ -189,8 +189,8 @@ export default function Index() {
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <Header />
         <ConfigCard config={config} setConfig={setConfig} importing={importing} rememberMe={rememberMe} setRememberMe={setRememberMe} />
-        <PrerequisitesAlert />
         <ImportInfoCard />
+        <PrerequisitesAlert />
 
         {/* Import Button */}
         <div className="flex justify-center mb-6">

@@ -399,23 +399,6 @@ function PrerequisitesAlert() {
                 </ul>
               </div>
             </div>
-            <div>
-              <p className="font-semibold mb-1.5">Required Permissions (for the Jira account above):</p>
-              <ul className="space-y-1 ml-4">
-                <li className="flex items-start gap-2">
-                  <span>-</span>
-                  <span>Create issues in the target project</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span>-</span>
-                  <span>Add attachments to issues</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span>-</span>
-                  <span>Browse projects permission</span>
-                </li>
-              </ul>
-            </div>
             <div className="text-sm text-amber-800 dark:text-amber-200 space-y-3 mb-3">
               <div>
                 <p className="font-semibold mb-1.5">Board Features (enable in Project Settings &rarr; Features):</p>

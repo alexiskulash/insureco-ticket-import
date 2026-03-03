@@ -416,6 +416,41 @@ function PrerequisitesAlert() {
                 </li>
               </ul>
             </div>
+            <div className="text-sm text-amber-800 dark:text-amber-200 space-y-3 mb-3">
+              <div>
+                <p className="font-semibold mb-1.5">Board Features (enable in Project Settings &rarr; Features):</p>
+                <ul className="space-y-1 ml-4">
+                  <li className="flex items-start gap-2">
+                    <span>-</span>
+                    <span>
+                      <strong>Backlog</strong>{' '}
+                      <a href="https://support.atlassian.com/jira-software-cloud/docs/enable-the-backlog-for-a-scrum-board/" target="_blank" rel="noopener noreferrer" className="underline">(How to enable)</a>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span>-</span>
+                    <span>
+                      <strong>Sprints</strong>{' '}
+                      <a href="https://support.atlassian.com/jira-software-cloud/docs/enable-sprints/" target="_blank" rel="noopener noreferrer" className="underline">(How to enable)</a>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span>-</span>
+                    <span>
+                      <strong>Estimation</strong> (for story points){' '}
+                      <a href="https://support.atlassian.com/jira-software-cloud/docs/configure-estimation/" target="_blank" rel="noopener noreferrer" className="underline">(How to enable)</a>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span>-</span>
+                    <span>
+                      <strong>List view</strong>{' '}
+                      <a href="https://support.atlassian.com/jira-software-cloud/docs/view-and-edit-your-issues-in-a-list/" target="_blank" rel="noopener noreferrer" className="underline">(How to enable)</a>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
             <p className="text-xs text-amber-700 dark:text-amber-300">
               Issues with missing issue types will fail to import. Story points will be set if the field exists.
             </p>

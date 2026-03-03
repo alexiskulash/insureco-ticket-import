@@ -103,8 +103,8 @@ export default function Index() {
 
       // Step 2: Find existing sprint or create new one
       let sprintId: number | undefined;
-      let componentsAvailable = true;
-      setCurrentTicket('Setting up sprint...');
+      let epicKeyMap: Record<string, string> = {};
+      setCurrentTicket('Setting up sprint and epics...');
       try {
         const sprintRes = await fetch('/api/setup-sprint', {
           method: 'POST',
@@ -117,7 +117,7 @@ export default function Index() {
         const sprintData = await sprintRes.json();
         if (sprintData.success) {
           sprintId = sprintData.sprintId;
-          componentsAvailable = sprintData.componentsAvailable !== false;
+          epicKeyMap = sprintData.epicKeyMap || {};
         }
       } catch {
         // Sprint setup failed - continue without sprint assignment
@@ -144,7 +144,7 @@ export default function Index() {
               config,
               issueKeyMap,
               sprintId,
-              componentsAvailable,
+              epicKeyMap,
             }),
           });
 

@@ -121,7 +121,7 @@ interface JiraIssue {
   attachmentFilename?: string;
   sprint?: string;
   storyPoints?: number;
-  component?: string;
+  epicName?: string;
 }
 
 // Only import these specific tickets (no epics)
@@ -137,8 +137,8 @@ const SPRINT_TICKETS = new Set([
   'DI-6', 'DI-7', 'DI-44', 'DI-2', 'DI-71', 'DI-123', 'DI-124', 'DI-127',
 ]);
 
-// Components per ticket (based on parent epic name — components support spaces unlike labels)
-const TICKET_COMPONENTS: Record<string, string> = {
+// Parent epic for each ticket
+const TICKET_EPICS: Record<string, string> = {
   'DI-6': 'Strategic Work',
   'DI-7': 'Strategic Work',
   'DI-9': 'Strategic Work',
@@ -155,6 +155,9 @@ const TICKET_COMPONENTS: Record<string, string> = {
   'DI-124': 'Support',
   'DI-127': 'Support',
 };
+
+// Epic names that need to be created/found
+const EPIC_NAMES = ['Strategic Work', 'Enhancements', 'Support'];
 
 // Map original Jira attachment filenames to publicly hosted URLs
 const HOSTED_ATTACHMENTS: Record<string, string> = {
@@ -270,7 +273,7 @@ function parseTickets(): JiraIssue[] {
         attachmentFilename,
         sprint: row.Sprint,
         storyPoints: parsedStoryPoints,
-        component: TICKET_COMPONENTS[issueKey],
+        epicName: TICKET_EPICS[issueKey],
       };
     });
 
@@ -339,28 +342,45 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
     const scrumBoard = boards.find((b: any) => b.type === 'scrum') || boards[0];
     const boardId = scrumBoard.id;
 
-    // Step 2: Ensure project components exist (Strategic Work, Enhancements, Support)
-    let componentsAvailable = true;
-    const componentNames = [...new Set(Object.values(TICKET_COMPONENTS))];
+    // Step 2: Create or find parent epics (Strategic Work, Enhancements, Support)
+    const epicKeyMap: Record<string, string> = {};
 
-    // First check if components already exist
-    let existingComponents: string[] = [];
-    try {
-      const projRes = await jiraClient.get(`/rest/api/3/project/${config.targetProject}/components`);
-      existingComponents = (projRes.data || []).map((c: any) => c.name);
-    } catch {
-      // If we can't list components, we'll try creating them
+    // Search for existing epics in the project
+    for (const epicName of EPIC_NAMES) {
+      try {
+        const searchRes = await jiraClient.get('/rest/api/3/search', {
+          params: {
+            jql: `project = "${config.targetProject}" AND issuetype = Epic AND summary ~ "${epicName}" ORDER BY created ASC`,
+            fields: 'summary',
+            maxResults: 5,
+          },
+        });
+        const match = searchRes.data.issues?.find(
+          (i: any) => i.fields.summary === epicName
+        );
+        if (match) {
+          epicKeyMap[epicName] = match.key;
+        }
+      } catch {
+        // Search failed — will try to create
+      }
     }
 
-    for (const name of componentNames) {
-      if (existingComponents.includes(name)) continue;
+    // Create any epics that don't exist yet
+    for (const epicName of EPIC_NAMES) {
+      if (epicKeyMap[epicName]) continue;
       try {
-        await jiraClient.post(`/rest/api/3/component`, {
-          name,
-          project: config.targetProject,
+        const createRes = await jiraClient.post('/rest/api/3/issue', {
+          fields: {
+            project: { key: config.targetProject },
+            summary: epicName,
+            issuetype: { name: 'Epic' },
+            assignee: null,
+          },
         });
+        epicKeyMap[epicName] = createRes.data.key;
       } catch {
-        componentsAvailable = false;
+        // Epic creation failed — tickets will import without parent
       }
     }
 
@@ -384,12 +404,12 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
         boardId,
         boardName: scrumBoard.name,
         existing: true,
-        componentsAvailable,
+        epicKeyMap,
       });
       return;
     }
 
-    // Step 4: Create new sprint only if none exists
+    // Step 5: Create new sprint only if none exists
     const sprintRes = await jiraClient.post('/rest/agile/1.0/sprint', {
       name: targetSprintName,
       originBoardId: boardId,
@@ -402,7 +422,7 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
       boardId,
       boardName: scrumBoard.name,
       existing: false,
-      componentsAvailable,
+      epicKeyMap,
     });
   } catch (error) {
     let errorMessage = 'Unknown error';
@@ -419,12 +439,12 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
 
 // POST /api/import-ticket - Import a single ticket
 export const handleImportTicket: RequestHandler = async (req, res) => {
-  const { ticketIndex, config, issueKeyMap, sprintId, componentsAvailable } = req.body as {
+  const { ticketIndex, config, issueKeyMap, sprintId, epicKeyMap } = req.body as {
     ticketIndex: number;
     config: JiraConfig;
     issueKeyMap: Record<string, string>;
     sprintId?: number;
-    componentsAvailable?: boolean;
+    epicKeyMap?: Record<string, string>;
   };
 
   // Validate
@@ -463,11 +483,6 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       },
     };
 
-    // Set component if available and user has permission
-    if (issue.component && componentsAvailable !== false) {
-      payload.fields.components = [{ name: issue.component }];
-    }
-
     if (issue.description) {
       payload.fields.description = convertToADF(issue.description);
     }
@@ -476,23 +491,13 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       payload.fields.priority = { name: issue.priority };
     }
 
-    // Add parent reference using the key map from client
-    if (issue.parentKey && issueKeyMap?.[issue.parentKey]) {
-      payload.fields.parent = { key: issueKeyMap[issue.parentKey] };
+    // Set parent epic using the epic key map
+    if (issue.epicName && epicKeyMap?.[issue.epicName]) {
+      payload.fields.parent = { key: epicKeyMap[issue.epicName] };
     }
 
-    // Create the issue — retry without components if it fails
-    let createResponse;
-    try {
-      createResponse = await jiraClient.post('/rest/api/3/issue', payload);
-    } catch (createError) {
-      if (axios.isAxiosError(createError) && createError.response?.data?.errors?.components && payload.fields.components) {
-        delete payload.fields.components;
-        createResponse = await jiraClient.post('/rest/api/3/issue', payload);
-      } else {
-        throw createError;
-      }
-    }
+    // Create the issue
+    const createResponse = await jiraClient.post('/rest/api/3/issue', payload);
     const newKey = createResponse.data.key;
 
     const warnings: string[] = [];

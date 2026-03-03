@@ -139,10 +139,10 @@ const SPRINT_TICKETS = new Set([
 
 // Labels per ticket (based on parent epic name)
 const TICKET_LABELS: Record<string, string> = {
-  'DI-6': 'Strategic Work',
-  'DI-7': 'Strategic Work',
-  'DI-9': 'Strategic Work',
-  'DI-10': 'Strategic Work',
+  'DI-6': 'Strategic-Work',
+  'DI-7': 'Strategic-Work',
+  'DI-9': 'Strategic-Work',
+  'DI-10': 'Strategic-Work',
   'DI-2': 'Enhancements',
   'DI-44': 'Enhancements',
   'DI-71': 'Enhancements',

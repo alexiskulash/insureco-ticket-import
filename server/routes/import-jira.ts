@@ -121,7 +121,7 @@ interface JiraIssue {
   attachmentFilename?: string;
   sprint?: string;
   storyPoints?: number;
-  label?: string;
+  component?: string;
 }
 
 // Only import these specific tickets (no epics)
@@ -137,12 +137,12 @@ const SPRINT_TICKETS = new Set([
   'DI-6', 'DI-7', 'DI-44', 'DI-2', 'DI-71', 'DI-123', 'DI-124', 'DI-127',
 ]);
 
-// Labels per ticket (based on parent epic name)
-const TICKET_LABELS: Record<string, string> = {
-  'DI-6': 'Strategic-Work',
-  'DI-7': 'Strategic-Work',
-  'DI-9': 'Strategic-Work',
-  'DI-10': 'Strategic-Work',
+// Components per ticket (based on parent epic name — components support spaces unlike labels)
+const TICKET_COMPONENTS: Record<string, string> = {
+  'DI-6': 'Strategic Work',
+  'DI-7': 'Strategic Work',
+  'DI-9': 'Strategic Work',
+  'DI-10': 'Strategic Work',
   'DI-2': 'Enhancements',
   'DI-44': 'Enhancements',
   'DI-71': 'Enhancements',
@@ -270,7 +270,7 @@ function parseTickets(): JiraIssue[] {
         attachmentFilename,
         sprint: row.Sprint,
         storyPoints: parsedStoryPoints,
-        label: TICKET_LABELS[issueKey],
+        component: TICKET_COMPONENTS[issueKey],
       };
     });
 
@@ -339,7 +339,20 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
     const scrumBoard = boards.find((b: any) => b.type === 'scrum') || boards[0];
     const boardId = scrumBoard.id;
 
-    // Step 2: Check for existing sprints on this board
+    // Step 2: Ensure project components exist (Strategic Work, Enhancements, Support)
+    const componentNames = [...new Set(Object.values(TICKET_COMPONENTS))];
+    for (const name of componentNames) {
+      try {
+        await jiraClient.post(`/rest/api/3/component`, {
+          name,
+          project: config.targetProject,
+        });
+      } catch {
+        // Component likely already exists — safe to ignore
+      }
+    }
+
+    // Step 3: Check for existing sprints on this board
     let existingSprint: any = null;
     try {
       const sprintsRes = await jiraClient.get(`/rest/agile/1.0/board/${boardId}/sprint`, {
@@ -436,9 +449,9 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       },
     };
 
-    // Set label if available
-    if (issue.label) {
-      payload.fields.labels = [issue.label];
+    // Set component if available (components support spaces, labels don't)
+    if (issue.component) {
+      payload.fields.components = [{ name: issue.component }];
     }
 
     if (issue.description) {

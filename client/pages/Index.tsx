@@ -460,9 +460,6 @@ function ImportInfoCard() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground border-t border-accent/20 pt-2">
-              *Story Points use customfield_10016. If the field doesn't exist, it will be skipped.
-            </p>
           </div>
         </div>
       </CardContent>

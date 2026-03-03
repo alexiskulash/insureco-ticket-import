@@ -121,6 +121,7 @@ interface JiraIssue {
   attachmentFilename?: string;
   sprint?: string;
   storyPoints?: number;
+  label?: string;
 }
 
 // Only import these specific tickets (no epics)
@@ -135,6 +136,25 @@ const TICKETS_TO_IMPORT = new Set([
 const SPRINT_TICKETS = new Set([
   'DI-6', 'DI-7', 'DI-44', 'DI-2', 'DI-71', 'DI-123', 'DI-124', 'DI-127',
 ]);
+
+// Labels per ticket (based on parent epic name)
+const TICKET_LABELS: Record<string, string> = {
+  'DI-6': 'Strategic Work',
+  'DI-7': 'Strategic Work',
+  'DI-9': 'Strategic Work',
+  'DI-10': 'Strategic Work',
+  'DI-2': 'Enhancements',
+  'DI-44': 'Enhancements',
+  'DI-71': 'Enhancements',
+  'DI-72': 'Enhancements',
+  'DI-78': 'Enhancements',
+  'DI-67': 'Enhancements',
+  'DI-22': 'Enhancements',
+  'DI-45': 'Enhancements',
+  'DI-123': 'Support',
+  'DI-124': 'Support',
+  'DI-127': 'Support',
+};
 
 // Map original Jira attachment filenames to publicly hosted URLs
 const HOSTED_ATTACHMENTS: Record<string, string> = {
@@ -237,11 +257,12 @@ function parseTickets(): JiraIssue[] {
       const storyPoints = row['Custom field (Story Points)'] || row['Custom field (Story point estimate)'];
       const parsedStoryPoints = storyPoints ? parseFloat(storyPoints) : undefined;
 
+      const issueKey = row['Issue key'];
       return {
         summary: row.Summary,
-        issueKey: row['Issue key'],
+        issueKey,
         issueType: row['Issue Type'],
-        status: row.Status,
+        status: row.Status || 'To Do',
         description: row.Description || '',
         priority: row.Priority || 'Medium',
         parentKey: row['Parent key'],
@@ -249,6 +270,7 @@ function parseTickets(): JiraIssue[] {
         attachmentFilename,
         sprint: row.Sprint,
         storyPoints: parsedStoryPoints,
+        label: TICKET_LABELS[issueKey],
       };
     });
 
@@ -414,6 +436,11 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       },
     };
 
+    // Set label if available
+    if (issue.label) {
+      payload.fields.labels = [issue.label];
+    }
+
     if (issue.description) {
       payload.fields.description = convertToADF(issue.description);
     }
@@ -471,6 +498,26 @@ export const handleImportTicket: RequestHandler = async (req, res) => {
       } catch (attachError) {
         const errorMsg = attachError instanceof Error ? attachError.message : 'Unknown error';
         warnings.push(`Attachment upload failed: ${errorMsg}`);
+      }
+    }
+
+    // Transition to correct workflow status if not "To Do"
+    if (issue.status && issue.status.toLowerCase() !== 'to do') {
+      try {
+        const transitionsRes = await jiraClient.get(`/rest/api/3/issue/${newKey}/transitions`);
+        const transitions = transitionsRes.data.transitions || [];
+        const targetTransition = transitions.find(
+          (t: any) => t.name.toLowerCase() === issue.status.toLowerCase()
+        );
+        if (targetTransition) {
+          await jiraClient.post(`/rest/api/3/issue/${newKey}/transitions`, {
+            transition: { id: targetTransition.id },
+          });
+        } else {
+          warnings.push(`Could not find transition for status "${issue.status}"`);
+        }
+      } catch {
+        warnings.push(`Could not transition to "${issue.status}" - skipped`);
       }
     }
 

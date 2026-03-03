@@ -434,9 +434,6 @@ function PrerequisitesAlert() {
                 </ul>
               </div>
             </div>
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Issues with missing issue types will fail to import. Story points will be set if the field exists.
-            </p>
           </div>
         </div>
       </AlertDescription>

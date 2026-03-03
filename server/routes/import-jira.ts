@@ -166,6 +166,27 @@ const EPIC_COLORS: Record<string, string> = {
   'Support': 'purple',
 };
 
+// Priority per ticket (hardcoded to avoid CSV column misalignment)
+const TICKET_PRIORITIES: Record<string, string> = {
+  'DI-6': 'Medium',
+  'DI-7': 'Medium',
+  'DI-9': 'Medium',
+  'DI-10': 'Medium',
+  'DI-2': 'Medium',
+  'DI-44': 'Medium',
+  'DI-71': 'Medium',
+  'DI-72': 'Medium',
+  'DI-78': 'Medium',
+  'DI-67': 'Medium',
+  'DI-22': 'Medium',
+  'DI-45': 'Medium',
+  'DI-111': 'Medium',
+  'DI-123': 'Medium',
+  'DI-124': 'Medium',
+  'DI-126': 'Medium',
+  'DI-127': 'Medium',
+};
+
 // Story points per ticket (CSV column parsing is unreliable due to duplicate headers)
 const TICKET_STORY_POINTS: Record<string, number> = {
   'DI-6': 40,
@@ -294,7 +315,7 @@ function parseTickets(): JiraIssue[] {
         issueType: row['Issue Type'],
         status: row.Status || 'To Do',
         description: row.Description || '',
-        priority: row.Priority || 'Medium',
+        priority: TICKET_PRIORITIES[issueKey] || row.Priority || 'Medium',
         parentKey: row['Parent key'],
         attachmentUrl,
         attachmentFilename,

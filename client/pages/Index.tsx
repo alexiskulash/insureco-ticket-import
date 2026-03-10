@@ -263,9 +263,14 @@ export default function Index() {
                   <CardTitle className="flex items-center gap-2">
                     <ListTodo className="w-5 h-5" />
                     Tickets to Import
+                    {!loadingTickets && (
+                      <Badge variant="secondary" className="ml-2 font-normal text-xs">
+                        {ticketsList.length - skippedTickets.size} of {ticketsList.length} selected
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription>
-                    These tickets will be imported into your Jira project
+                    These tickets will be imported into your Jira project. Click a row to skip it.
                   </CardDescription>
                 </div>
                 {checkingExisting && (
@@ -341,7 +346,6 @@ export default function Index() {
           {/* Right Column: Configuration & Import */}
           <div className="flex flex-col gap-6">
             <ConfigCard config={config} setConfig={setConfig} importing={importing} rememberMe={rememberMe} setRememberMe={setRememberMe} />
-            <ImportInfoCard />
             <PrerequisitesAlert />
 
             {/* Action Buttons */}
@@ -592,32 +596,6 @@ function PrerequisitesAlert() {
         </div>
       </AlertDescription>
     </Alert>
-  );
-}
-
-function ImportInfoCard() {
-  return (
-    <Card className="mb-6 bg-accent/5 border-accent/20">
-      <CardContent className="pt-6">
-        <div className="flex items-start gap-3">
-          <Upload className="w-5 h-5 text-accent mt-0.5" />
-          <div className="flex-1">
-            <h3 className="font-semibold mb-2">What will be imported?</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              17 Demo InsureCo Jira tickets (8 to sprint, 9 to backlog) with the following fields:
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-              {['Title (Summary)', 'Description', 'Issue Type', 'Parent Epics', 'Attachments', 'Story Points', 'Priority', 'Workflow Status', 'Sprint Assignment'].map(field => (
-                <div key={field} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>{field}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

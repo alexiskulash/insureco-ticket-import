@@ -317,10 +317,10 @@ export default function Index() {
                                 : 'hover:bg-muted/50'
                             }`}
                           >
-                            <TableCell className="font-medium text-sm">
-                              <div className="flex items-center gap-2">
+                            <TableCell className="font-medium text-sm max-w-0 w-full truncate">
+                              <div className="flex items-center gap-2 truncate">
                                 {isSkipped && <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
-                                <span className={isSkipped ? 'line-through text-muted-foreground' : ''}>
+                                <span className={`truncate ${isSkipped ? 'line-through text-muted-foreground' : ''}`} title={t.summary}>
                                   {t.summary}
                                 </span>
                               </div>

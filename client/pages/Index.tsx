@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2, Eye } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2, ListTodo } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,6 +64,25 @@ export default function Index() {
   const [progressCurrent, setProgressCurrent] = useState(0);
   const [currentTicket, setCurrentTicket] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [ticketsList, setTicketsList] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+
+  useEffect(() => {
+    async function loadTickets() {
+      try {
+        const res = await fetch('/api/tickets');
+        if (res.ok) {
+          const data = await res.json();
+          setTicketsList(data.tickets || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tickets", err);
+      } finally {
+        setLoadingTickets(false);
+      }
+    }
+    loadTickets();
+  }, []);
 
   const handleImport = async () => {
     // Validate all required fields
@@ -190,60 +208,116 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-4 py-12 max-w-[1200px]">
         <Header />
-        <ConfigCard config={config} setConfig={setConfig} importing={importing} rememberMe={rememberMe} setRememberMe={setRememberMe} />
-        <ImportInfoCard />
-        <PrerequisitesAlert />
 
-        {/* Action Buttons */}
-        <div className="flex justify-center gap-4 mb-6">
-          <PreviewTicketsDialog />
-          <Button
-            onClick={handleImport}
-            disabled={importing || !config.domain || !config.email || !config.apiToken || !config.targetProject}
-            size="lg"
-            className="px-8 shadow-lg h-11"
-          >
-            {importing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Start Import
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Progress */}
-        {(importing || progressCurrent > 0) && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Import Progress</CardTitle>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* Left Column: Tickets Preview */}
+          <Card className="h-[800px] flex flex-col shadow-lg border-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <ListTodo className="w-5 h-5" />
+                Tickets to Import
+              </CardTitle>
+              <CardDescription>
+                These tickets will be imported into your Jira project
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {progressCurrent} of {progressTotal} tickets
-                  </span>
-                  <span className="font-medium">{progressPercent}%</span>
+            <CardContent className="flex-1 overflow-hidden flex flex-col p-0">
+              {loadingTickets ? (
+                <div className="flex-1 flex justify-center items-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 </div>
-                <Progress value={progressPercent} />
-              </div>
-              {currentTicket && (
-                <p className="text-sm text-muted-foreground">Current: {currentTicket}</p>
+              ) : (
+                <ScrollArea className="flex-1 h-full px-6">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        <TableHead className="w-[100px]">Type</TableHead>
+                        <TableHead>Summary</TableHead>
+                        <TableHead className="w-[80px] text-center">Points</TableHead>
+                        <TableHead className="w-[100px]">Sprint</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ticketsList.map((t, idx) => (
+                        <TableRow key={t.issueKey || idx}>
+                          <TableCell>
+                            <Badge variant="outline" className="font-normal">{t.issueType}</Badge>
+                          </TableCell>
+                          <TableCell className="font-medium text-sm">{t.summary}</TableCell>
+                          <TableCell className="text-center text-muted-foreground">{t.storyPoints ?? '-'}</TableCell>
+                          <TableCell>
+                            {t.sprint ? (
+                              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="font-normal">Backlog</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Results */}
-        {result && <ResultsAlert result={result} />}
+          {/* Right Column: Configuration & Import */}
+          <div className="flex flex-col gap-6">
+            <ConfigCard config={config} setConfig={setConfig} importing={importing} rememberMe={rememberMe} setRememberMe={setRememberMe} />
+            <ImportInfoCard />
+            <PrerequisitesAlert />
+
+            {/* Action Buttons */}
+            <div className="flex justify-center mb-6">
+              <Button
+                onClick={handleImport}
+                disabled={importing || !config.domain || !config.email || !config.apiToken || !config.targetProject}
+                size="lg"
+                className="px-8 shadow-lg h-11 w-full sm:w-auto"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Start Import
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Progress */}
+            {(importing || progressCurrent > 0) && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">Import Progress</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {progressCurrent} of {progressTotal} tickets
+                      </span>
+                      <span className="font-medium">{progressPercent}%</span>
+                    </div>
+                    <Progress value={progressPercent} />
+                  </div>
+                  {currentTicket && (
+                    <p className="text-sm text-muted-foreground">Current: {currentTicket}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Results */}
+            {result && <ResultsAlert result={result} />}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -510,85 +584,5 @@ function ResultsAlert({ result }: { result: ImportResult }) {
         </div>
       </div>
     </Alert>
-  );
-}
-
-function PreviewTicketsDialog() {
-  const [open, setOpen] = useState(false);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const handleOpenChange = async (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (isOpen && tickets.length === 0) {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/tickets');
-        if (res.ok) {
-          const data = await res.json();
-          setTickets(data.tickets || []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch tickets", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="lg" className="px-8 shadow-sm h-11">
-          <Eye className="w-4 h-4 mr-2" />
-          Preview Tickets
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Tickets Preview</DialogTitle>
-          <DialogDescription>
-            These are the tickets that will be imported into your Jira project.
-          </DialogDescription>
-        </DialogHeader>
-
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <ScrollArea className="flex-1 -mx-6 px-6 mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">Type</TableHead>
-                  <TableHead>Summary</TableHead>
-                  <TableHead className="w-[80px] text-center">Points</TableHead>
-                  <TableHead className="w-[100px]">Sprint</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tickets.map((t, idx) => (
-                  <TableRow key={t.issueKey || idx}>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal">{t.issueType}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium text-sm">{t.summary}</TableCell>
-                    <TableCell className="text-center text-muted-foreground">{t.storyPoints ?? '-'}</TableCell>
-                    <TableCell>
-                      {t.sprint ? (
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="font-normal">Backlog</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }

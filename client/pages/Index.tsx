@@ -447,7 +447,21 @@ function ConfigCard({
               id="domain"
               placeholder="your-domain.atlassian.net"
               value={config.domain}
-              onChange={(e) => setConfig({ ...config, domain: e.target.value })}
+              onChange={(e) => {
+                let val = e.target.value;
+                // Automatically strip out http://, https://
+                val = val.replace(/^https?:\/\//, '');
+                // Strip out trailing slash and anything after it
+                val = val.split('/')[0];
+                setConfig({ ...config, domain: val });
+              }}
+              onBlur={() => {
+                let val = config.domain.trim();
+                if (val && !val.includes('.')) {
+                  val = `${val}.atlassian.net`;
+                  setConfig({ ...config, domain: val });
+                }
+              }}
               disabled={importing}
             />
           </div>

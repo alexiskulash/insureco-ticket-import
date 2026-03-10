@@ -66,6 +66,8 @@ export default function Index() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [ticketsList, setTicketsList] = useState<any[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+  const [skippedTickets, setSkippedTickets] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadTickets() {
@@ -83,6 +85,43 @@ export default function Index() {
     }
     loadTickets();
   }, []);
+
+  // Auto-check for existing tickets when config has valid credentials
+  useEffect(() => {
+    async function checkExisting() {
+      if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
+        return;
+      }
+
+      setCheckingExisting(true);
+      try {
+        const res = await fetch('/api/check-existing-tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.existingKeys) {
+            setSkippedTickets(prev => {
+              const newSkipped = new Set(prev);
+              data.existingKeys.forEach((key: string) => newSkipped.add(key));
+              return newSkipped;
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check existing tickets", err);
+      } finally {
+        setCheckingExisting(false);
+      }
+    }
+
+    // Use a small debounce to not trigger instantly while typing
+    const timeoutId = setTimeout(checkExisting, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [config.domain, config.email, config.apiToken, config.targetProject]);
 
   const handleImport = async () => {
     // Validate all required fields
@@ -152,8 +191,12 @@ export default function Index() {
       const warnings: string[] = [];
       const issueKeyMap: Record<string, string> = {};
 
-      for (let i = 0; i < tickets.length; i++) {
-        const ticket = tickets[i];
+      // Filter out tickets that are marked to be skipped
+      const ticketsToImport = tickets.filter((t: any) => !skippedTickets.has(t.issueKey));
+      setProgressTotal(ticketsToImport.length);
+
+      for (let i = 0; i < ticketsToImport.length; i++) {
+        const ticket = ticketsToImport[i];
         setProgressCurrent(i);
         setCurrentTicket(`${ticket.summary} (${ticket.issueType})`);
 
@@ -188,7 +231,7 @@ export default function Index() {
         }
       }
 
-      setProgressCurrent(total);
+      setProgressCurrent(ticketsToImport.length);
       setCurrentTicket('Complete');
       setResult({ success: failed === 0, created, failed, errors, warnings });
     } catch (error) {
@@ -213,15 +256,25 @@ export default function Index() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Left Column: Tickets Preview */}
-          <Card className="h-[800px] flex flex-col shadow-lg border-2">
+          <Card className="h-[90vh] min-h-[600px] flex flex-col shadow-lg border-2">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2">
-                <ListTodo className="w-5 h-5" />
-                Tickets to Import
-              </CardTitle>
-              <CardDescription>
-                These tickets will be imported into your Jira project
-              </CardDescription>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ListTodo className="w-5 h-5" />
+                    Tickets to Import
+                  </CardTitle>
+                  <CardDescription>
+                    These tickets will be imported into your Jira project
+                  </CardDescription>
+                </div>
+                {checkingExisting && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Checking existing...
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden flex flex-col p-0">
               {loadingTickets ? (
@@ -231,31 +284,53 @@ export default function Index() {
               ) : (
                 <ScrollArea className="flex-1 h-full px-6">
                   <Table>
-                    <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                       <TableRow>
-                        <TableHead className="w-[100px]">Type</TableHead>
                         <TableHead>Summary</TableHead>
                         <TableHead className="w-[80px] text-center">Points</TableHead>
                         <TableHead className="w-[100px]">Sprint</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {ticketsList.map((t, idx) => (
-                        <TableRow key={t.issueKey || idx}>
-                          <TableCell>
-                            <Badge variant="outline" className="font-normal">{t.issueType}</Badge>
-                          </TableCell>
-                          <TableCell className="font-medium text-sm">{t.summary}</TableCell>
-                          <TableCell className="text-center text-muted-foreground">{t.storyPoints ?? '-'}</TableCell>
-                          <TableCell>
-                            {t.sprint ? (
-                              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="font-normal">Backlog</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {ticketsList.map((t, idx) => {
+                        const isSkipped = skippedTickets.has(t.issueKey);
+                        return (
+                          <TableRow
+                            key={t.issueKey || idx}
+                            onClick={() => {
+                              const newSkipped = new Set(skippedTickets);
+                              if (isSkipped) {
+                                newSkipped.delete(t.issueKey);
+                              } else {
+                                newSkipped.add(t.issueKey);
+                              }
+                              setSkippedTickets(newSkipped);
+                            }}
+                            className={`cursor-pointer transition-colors ${
+                              isSkipped
+                                ? 'bg-red-50/50 hover:bg-red-50/80 opacity-60'
+                                : 'hover:bg-muted/50'
+                            }`}
+                          >
+                            <TableCell className="font-medium text-sm">
+                              <div className="flex items-center gap-2">
+                                {isSkipped && <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
+                                <span className={isSkipped ? 'line-through text-muted-foreground' : ''}>
+                                  {t.summary}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center text-muted-foreground">{t.storyPoints ?? '-'}</TableCell>
+                            <TableCell>
+                              {t.sprint ? (
+                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
+                              ) : (
+                                <Badge variant="secondary" className="font-normal">Backlog</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </ScrollArea>

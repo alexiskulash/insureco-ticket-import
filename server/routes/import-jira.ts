@@ -331,6 +331,71 @@ function parseTickets(): JiraIssue[] {
   return [...regular, ...children];
 }
 
+// POST /api/check-existing-tickets - Check which tickets already exist in Jira
+export const handleCheckExistingTickets: RequestHandler = async (req, res) => {
+  const { config } = req.body as { config: JiraConfig };
+
+  if (!config?.domain || !config?.email || !config?.apiToken || !config?.targetProject) {
+    res.status(400).json({ error: 'Missing required config fields' });
+    return;
+  }
+
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+  const jiraClient = axios.create({
+    baseURL: `https://${config.domain}`,
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+  });
+
+  try {
+    const tickets = parseTickets();
+    const existingTicketKeys: string[] = [];
+
+    // Search for each ticket by summary to see if it already exists in the project
+    // Doing this in batches or individual queries to avoid JQL complexity limits
+    for (const ticket of tickets) {
+      // Escape quotes in summary for JQL
+      const escapedSummary = ticket.summary.replace(/"/g, '\\"');
+
+      try {
+        const searchRes = await jiraClient.get('/rest/api/3/search', {
+          params: {
+            jql: `project = "${config.targetProject}" AND summary ~ "\\"${escapedSummary}\\""`,
+            fields: 'summary',
+            maxResults: 1,
+          },
+        });
+
+        if (searchRes.data.issues && searchRes.data.issues.length > 0) {
+          existingTicketKeys.push(ticket.issueKey);
+        }
+      } catch (err) {
+        // Just skip if search fails for a specific ticket
+        console.error(`Error searching for ticket ${ticket.issueKey}:`, err);
+      }
+    }
+
+    res.json({
+      success: true,
+      existingKeys: existingTicketKeys,
+    });
+  } catch (error) {
+    let errorMessage = 'Unknown error';
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status || 'No response';
+      const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      errorMessage = `HTTP ${status} - ${errorData}`;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    res.status(500).json({ error: errorMessage });
+  }
+};
+
 // GET /api/tickets - Return the list of tickets to import
 export const handleGetTickets: RequestHandler = (_req, res) => {
   const tickets = parseTickets();

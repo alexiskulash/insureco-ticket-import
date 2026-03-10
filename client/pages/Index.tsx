@@ -288,10 +288,10 @@ export default function Index() {
                 </div>
               ) : (
                 <ScrollArea className="flex-1 h-full px-6">
-                  <Table>
+                  <Table className="table-fixed">
                     <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                       <TableRow>
-                        <TableHead>Summary</TableHead>
+                        <TableHead className="w-auto">Summary</TableHead>
                         <TableHead className="w-[80px] text-center">Points</TableHead>
                         <TableHead className="w-[100px]">Sprint</TableHead>
                       </TableRow>
@@ -317,7 +317,7 @@ export default function Index() {
                                 : 'hover:bg-muted/50'
                             }`}
                           >
-                            <TableCell className="font-medium text-sm max-w-0 w-full truncate">
+                            <TableCell className="font-medium text-sm truncate max-w-0">
                               <div className="flex items-center gap-2 truncate">
                                 {isSkipped && <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
                                 <span className={`truncate ${isSkipped ? 'line-through text-muted-foreground' : ''}`} title={t.summary}>
@@ -325,8 +325,8 @@ export default function Index() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center text-muted-foreground">{t.storyPoints ?? '-'}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-center text-muted-foreground whitespace-nowrap">{t.storyPoints ?? '-'}</TableCell>
+                            <TableCell className="whitespace-nowrap">
                               {t.sprint ? (
                                 <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
                               ) : (

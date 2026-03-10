@@ -86,42 +86,52 @@ export default function Index() {
     loadTickets();
   }, []);
 
-  // Auto-check for existing tickets when config has valid credentials
-  useEffect(() => {
-    async function checkExisting() {
-      if (!config.domain || !config.email || !config.apiToken || !config.targetProject) {
-        return;
-      }
+  const handleCheckExisting = async () => {
+    // Validate all required fields
+    const missingFields = [];
+    if (!config.domain) missingFields.push('Jira Domain');
+    if (!config.email) missingFields.push('Email');
+    if (!config.apiToken) missingFields.push('API Token');
+    if (!config.targetProject) missingFields.push('Target Project Key');
 
-      setCheckingExisting(true);
-      try {
-        const res = await fetch('/api/check-existing-tickets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ config }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.existingKeys) {
-            setSkippedTickets(prev => {
-              const newSkipped = new Set(prev);
-              data.existingKeys.forEach((key: string) => newSkipped.add(key));
-              return newSkipped;
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to check existing tickets", err);
-      } finally {
-        setCheckingExisting(false);
-      }
+    if (missingFields.length > 0) {
+      alert(`Please fill in the following required fields to check existing tickets:\n\n${missingFields.join('\n')}`);
+      return;
     }
 
-    // Use a small debounce to not trigger instantly while typing
-    const timeoutId = setTimeout(checkExisting, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [config.domain, config.email, config.apiToken, config.targetProject]);
+    if (config.domain.includes('://') || config.domain.endsWith('/')) {
+      alert('Invalid Jira Domain format.\n\nPlease enter just the domain without https:// or trailing slash.\n\nExample: your-company.atlassian.net');
+      return;
+    }
+
+    setCheckingExisting(true);
+    try {
+      const res = await fetch('/api/check-existing-tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.existingKeys) {
+          setSkippedTickets(prev => {
+            const newSkipped = new Set(prev);
+            data.existingKeys.forEach((key: string) => newSkipped.add(key));
+            return newSkipped;
+          });
+          alert(`Found ${data.existingKeys.length} existing tickets in Jira. They have been marked to be skipped.`);
+        }
+      } else {
+        alert('Failed to check existing tickets. Please verify your credentials.');
+      }
+    } catch (err) {
+      console.error("Failed to check existing tickets", err);
+      alert('Network error while checking existing tickets.');
+    } finally {
+      setCheckingExisting(false);
+    }
+  };
 
   const handleImport = async () => {
     // Validate all required fields
@@ -349,10 +359,28 @@ export default function Index() {
             <PrerequisitesAlert />
 
             {/* Action Buttons */}
-            <div className="flex justify-center mb-6">
+            <div className="flex justify-center gap-4 mb-6">
+              <Button
+                onClick={handleCheckExisting}
+                disabled={importing || checkingExisting || !config.domain || !config.email || !config.apiToken || !config.targetProject}
+                variant="outline"
+                size="lg"
+                className="px-8 shadow-lg h-11 w-full sm:w-auto"
+              >
+                {checkingExisting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    Check Existing
+                  </>
+                )}
+              </Button>
               <Button
                 onClick={handleImport}
-                disabled={importing || !config.domain || !config.email || !config.apiToken || !config.targetProject}
+                disabled={importing || checkingExisting || !config.domain || !config.email || !config.apiToken || !config.targetProject}
                 size="lg"
                 className="px-8 shadow-lg h-11 w-full sm:w-auto"
               >

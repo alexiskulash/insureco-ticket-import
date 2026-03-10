@@ -5,7 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface JiraConfig {
   domain: string;
@@ -192,13 +196,14 @@ export default function Index() {
         <ImportInfoCard />
         <PrerequisitesAlert />
 
-        {/* Import Button */}
-        <div className="flex justify-center mb-6">
+        {/* Action Buttons */}
+        <div className="flex justify-center gap-4 mb-6">
+          <PreviewTicketsDialog />
           <Button
             onClick={handleImport}
             disabled={importing || !config.domain || !config.email || !config.apiToken || !config.targetProject}
             size="lg"
-            className="px-8 shadow-lg"
+            className="px-8 shadow-lg h-11"
           >
             {importing ? (
               <>
@@ -505,5 +510,85 @@ function ResultsAlert({ result }: { result: ImportResult }) {
         </div>
       </div>
     </Alert>
+  );
+}
+
+function PreviewTicketsDialog() {
+  const [open, setOpen] = useState(false);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleOpenChange = async (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen && tickets.length === 0) {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/tickets');
+        if (res.ok) {
+          const data = await res.json();
+          setTickets(data.tickets || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tickets", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="lg" className="px-8 shadow-sm h-11">
+          <Eye className="w-4 h-4 mr-2" />
+          Preview Tickets
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Tickets Preview</DialogTitle>
+          <DialogDescription>
+            These are the tickets that will be imported into your Jira project.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 -mx-6 px-6 mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">Type</TableHead>
+                  <TableHead>Summary</TableHead>
+                  <TableHead className="w-[80px] text-center">Points</TableHead>
+                  <TableHead className="w-[100px]">Sprint</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tickets.map((t, idx) => (
+                  <TableRow key={t.issueKey || idx}>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">{t.issueType}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium text-sm">{t.summary}</TableCell>
+                    <TableCell className="text-center text-muted-foreground">{t.storyPoints ?? '-'}</TableCell>
+                    <TableCell>
+                      {t.sprint ? (
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="font-normal">Backlog</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

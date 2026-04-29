@@ -128,7 +128,8 @@ export default function Index() {
           }
         }
       } else {
-        alert('Failed to check existing tickets. Please verify your credentials.');
+        const data = await res.json().catch(() => ({}));
+        alert(`Failed to check existing tickets. Error: ${data.error || res.statusText}\n\nPlease verify your credentials and project key.`);
       }
     } catch (err) {
       console.error("Failed to check existing tickets", err);
@@ -548,7 +549,7 @@ function ConfigCard({
             id="targetProject"
             placeholder="PROJ (e.g., DI, TEST, DEMO)"
             value={config.targetProject}
-            onChange={(e) => setConfig({ ...config, targetProject: e.target.value.toUpperCase() })}
+            onChange={(e) => setConfig({ ...config, targetProject: e.target.value.toUpperCase().trim() })}
             disabled={importing}
           />
           <p className="text-xs text-muted-foreground">The project key where tickets will be imported</p>

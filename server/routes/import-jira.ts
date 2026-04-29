@@ -355,19 +355,33 @@ export const handleCheckExistingTickets: RequestHandler = async (req, res) => {
     const tickets = parseTickets();
     const existingTicketKeys: string[] = [];
 
-    // Fetch issues from the target project to check for existing summaries
-    // We fetch up to 500 issues to ensure we cover the demo project's current state
-    const searchRes = await jiraClient.get('/rest/api/3/search', {
-      params: {
-        jql: `project = "${config.targetProject}"`,
-        fields: 'summary',
-        maxResults: 500,
-      },
-    });
+    const existingSummaries = new Set<string>();
+    let startAt = 0;
+    let hasMore = true;
 
-    const existingSummaries = new Set(
-      searchRes.data.issues?.map((i: any) => i.fields.summary) || []
-    );
+    while (hasMore) {
+      const searchRes = await jiraClient.get('/rest/api/3/search', {
+        params: {
+          jql: `project = "${config.targetProject}"`,
+          fields: 'summary',
+          maxResults: 100,
+          startAt,
+        },
+      });
+
+      const issues = searchRes.data.issues || [];
+      issues.forEach((i: any) => {
+        if (i.fields?.summary) {
+          existingSummaries.add(i.fields.summary);
+        }
+      });
+
+      if (startAt + issues.length >= (searchRes.data.total || 0) || issues.length === 0) {
+        hasMore = false;
+      } else {
+        startAt += issues.length;
+      }
+    }
 
     for (const ticket of tickets) {
       if (existingSummaries.has(ticket.summary)) {
@@ -385,8 +399,10 @@ export const handleCheckExistingTickets: RequestHandler = async (req, res) => {
       const status = error.response?.status || 'No response';
       const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
       errorMessage = `HTTP ${status} - ${errorData}`;
+      console.error('Jira search error:', errorMessage);
     } else if (error instanceof Error) {
       errorMessage = error.message;
+      console.error('Jira search error:', error);
     }
     res.status(500).json({ error: errorMessage });
   }

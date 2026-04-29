@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
-import { handleGetTickets, handleImportTicket, handleSetupSprint, handleCheckExistingTickets } from "./routes/import-jira";
+import { handleGetTickets, handleImportTicket, handleSetupSprint, handleCheckExistingTickets, handleDeleteMatchingTickets } from "./routes/import-jira";
 
 export function createServer() {
   const app = express();
@@ -25,6 +25,7 @@ export function createServer() {
   app.post("/api/setup-sprint", handleSetupSprint);
   app.post("/api/import-ticket", handleImportTicket);
   app.post("/api/check-existing-tickets", handleCheckExistingTickets);
+  app.post("/api/delete-matching-tickets", handleDeleteMatchingTickets);
 
   return app;
 }

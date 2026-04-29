@@ -408,6 +408,94 @@ export const handleCheckExistingTickets: RequestHandler = async (req, res) => {
   }
 };
 
+// POST /api/delete-matching-tickets - Find matching tickets by summary and delete them
+export const handleDeleteMatchingTickets: RequestHandler = async (req, res) => {
+  const { config, summaries } = req.body as { config: JiraConfig; summaries: string[] };
+
+  if (!config?.domain || !config?.email || !config?.apiToken || !config?.targetProject) {
+    res.status(400).json({ error: 'Missing required config fields' });
+    return;
+  }
+  if (!summaries || !Array.isArray(summaries)) {
+    res.status(400).json({ error: 'Missing summaries array' });
+    return;
+  }
+
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+  const jiraClient = axios.create({
+    baseURL: `https://${config.domain}`,
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+  });
+
+  try {
+    const existingSummaries = new Set(summaries);
+    const issuesToDelete: string[] = [];
+
+    let startAt = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const searchRes = await jiraClient.get('/rest/api/3/search/jql', {
+        params: {
+          jql: `project = "${config.targetProject}"`,
+          fields: 'summary',
+          maxResults: 100,
+          startAt,
+        },
+      });
+
+      const issues = searchRes.data.issues || [];
+      issues.forEach((i: any) => {
+        if (i.fields?.summary && existingSummaries.has(i.fields.summary)) {
+          issuesToDelete.push(i.id);
+        }
+      });
+
+      if (startAt + issues.length >= (searchRes.data.total || 0) || issues.length === 0) {
+        hasMore = false;
+      } else {
+        startAt += issues.length;
+      }
+    }
+
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    for (const issueId of issuesToDelete) {
+      try {
+        await jiraClient.delete(`/rest/api/3/issue/${issueId}`);
+        deletedCount++;
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        errors.push(`Failed to delete issue ${issueId}: ${errorMsg}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      deletedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    let errorMessage = 'Unknown error';
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status || 'No response';
+      const errorData = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      errorMessage = `HTTP ${status} - ${errorData}`;
+      console.error('Jira search error for deletion:', errorMessage);
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+      console.error('Jira search error for deletion:', error);
+    }
+    res.status(500).json({ error: errorMessage });
+  }
+};
+
 // GET /api/tickets - Return the list of tickets to import
 export const handleGetTickets: RequestHandler = (_req, res) => {
   const tickets = parseTickets();

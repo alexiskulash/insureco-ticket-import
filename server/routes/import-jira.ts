@@ -360,7 +360,7 @@ export const handleCheckExistingTickets: RequestHandler = async (req, res) => {
     let hasMore = true;
 
     while (hasMore) {
-      const searchRes = await jiraClient.get('/rest/api/3/search', {
+      const searchRes = await jiraClient.get('/rest/api/3/search/jql', {
         params: {
           jql: `project = "${config.targetProject}"`,
           fields: 'summary',
@@ -473,7 +473,7 @@ export const handleSetupSprint: RequestHandler = async (req, res) => {
     // Search for existing epics in the project
     for (const epicName of EPIC_NAMES) {
       try {
-        const searchRes = await jiraClient.get('/rest/api/3/search', {
+        const searchRes = await jiraClient.get('/rest/api/3/search/jql', {
           params: {
             jql: `project = "${config.targetProject}" AND issuetype = Epic AND summary ~ "${epicName}" ORDER BY created ASC`,
             fields: 'summary',

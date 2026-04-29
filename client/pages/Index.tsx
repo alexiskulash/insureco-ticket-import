@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Upload, Database, Key, Mail, Building2, ListTodo } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface JiraConfig {
   domain: string;
@@ -55,12 +58,90 @@ function clearSavedConfig() {
 export default function Index() {
   const [config, setConfig] = useState<JiraConfig>(loadSavedConfig);
   const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem(STORAGE_KEY));
+  const [deleteExisting, setDeleteExisting] = useState(false);
 
   const [importing, setImporting] = useState(false);
   const [progressTotal, setProgressTotal] = useState(0);
   const [progressCurrent, setProgressCurrent] = useState(0);
   const [currentTicket, setCurrentTicket] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [ticketsList, setTicketsList] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+  const [skippedTickets, setSkippedTickets] = useState<Set<string>>(new Set());
+  const [existingKeysFound, setExistingKeysFound] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadTickets() {
+      try {
+        const res = await fetch('/api/tickets');
+        if (res.ok) {
+          const data = await res.json();
+          setTicketsList(data.tickets || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tickets", err);
+      } finally {
+        setLoadingTickets(false);
+      }
+    }
+    loadTickets();
+  }, []);
+
+  const handleCheckExisting = async () => {
+    // Validate all required fields
+    const missingFields = [];
+    if (!config.domain) missingFields.push('Jira Domain');
+    if (!config.email) missingFields.push('Email');
+    if (!config.apiToken) missingFields.push('API Token');
+    if (!config.targetProject) missingFields.push('Target Project Key');
+
+    if (missingFields.length > 0) {
+      alert(`Please fill in the following required fields to check existing tickets:\n\n${missingFields.join('\n')}`);
+      return;
+    }
+
+    if (config.domain.includes('://') || config.domain.endsWith('/')) {
+      alert('Invalid Jira Domain format.\n\nPlease enter just the domain without https:// or trailing slash.\n\nExample: your-company.atlassian.net');
+      return;
+    }
+
+    setCheckingExisting(true);
+    try {
+      const res = await fetch('/api/check-existing-tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.existingKeys) {
+          setExistingKeysFound(data.existingKeys);
+
+          setSkippedTickets(prev => {
+            const newSkipped = new Set(prev);
+            data.existingKeys.forEach((key: string) => newSkipped.add(key));
+            return newSkipped;
+          });
+
+          if (data.existingKeys.length === 0) {
+            alert('No existing tickets found in Jira. You are good to go!');
+          } else {
+            alert(`Found ${data.existingKeys.length} existing tickets in Jira. They have been marked to be skipped.`);
+          }
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(`Failed to check existing tickets. Error: ${data.error || res.statusText}\n\nPlease verify your credentials and project key.`);
+      }
+    } catch (err) {
+      console.error("Failed to check existing tickets", err);
+      alert('Network error while checking existing tickets.');
+    } finally {
+      setCheckingExisting(false);
+    }
+  };
 
   const handleImport = async () => {
     // Validate all required fields
@@ -130,8 +211,32 @@ export default function Index() {
       const warnings: string[] = [];
       const issueKeyMap: Record<string, string> = {};
 
-      for (let i = 0; i < tickets.length; i++) {
-        const ticket = tickets[i];
+      // Filter out tickets that are marked to be skipped
+      const ticketsToImport = tickets.filter((t: any) => !skippedTickets.has(t.issueKey));
+      setProgressTotal(ticketsToImport.length);
+
+      if (deleteExisting && ticketsToImport.length > 0) {
+        setCurrentTicket('Deleting existing matching tickets...');
+        try {
+          const deleteRes = await fetch('/api/delete-matching-tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              config,
+              summaries: ticketsToImport.map((t: any) => t.summary),
+            }),
+          });
+          const deleteData = await deleteRes.json();
+          if (!deleteData.success) {
+            console.error('Failed to delete existing tickets:', deleteData.error);
+          }
+        } catch (err) {
+          console.error('Error deleting existing tickets:', err);
+        }
+      }
+
+      for (let i = 0; i < ticketsToImport.length; i++) {
+        const ticket = ticketsToImport[i];
         setProgressCurrent(i);
         setCurrentTicket(`${ticket.summary} (${ticket.issueType})`);
 
@@ -166,7 +271,7 @@ export default function Index() {
         }
       }
 
-      setProgressCurrent(total);
+      setProgressCurrent(ticketsToImport.length);
       setCurrentTicket('Complete');
       setResult({ success: failed === 0, created, failed, errors, warnings });
     } catch (error) {
@@ -186,59 +291,211 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-4 py-12 max-w-[1200px]">
         <Header />
-        <ConfigCard config={config} setConfig={setConfig} importing={importing} rememberMe={rememberMe} setRememberMe={setRememberMe} />
-        <ImportInfoCard />
-        <PrerequisitesAlert />
 
-        {/* Import Button */}
-        <div className="flex justify-center mb-6">
-          <Button
-            onClick={handleImport}
-            disabled={importing || !config.domain || !config.email || !config.apiToken || !config.targetProject}
-            size="lg"
-            className="px-8 shadow-lg"
-          >
-            {importing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Start Import
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Progress */}
-        {(importing || progressCurrent > 0) && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Import Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {progressCurrent} of {progressTotal} tickets
-                  </span>
-                  <span className="font-medium">{progressPercent}%</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* Left Column: Tickets Preview */}
+          <Card className="h-[90vh] min-h-[600px] flex flex-col shadow-lg border-2">
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ListTodo className="w-5 h-5" />
+                    Tickets to Import
+                    {!loadingTickets && (
+                      <Badge variant="secondary" className="ml-2 font-normal text-xs">
+                        {ticketsList.length - skippedTickets.size} of {ticketsList.length} selected
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    These tickets will be imported into your Jira project. Click a row to skip it.
+                  </CardDescription>
                 </div>
-                <Progress value={progressPercent} />
+                {checkingExisting && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Checking existing...
+                  </div>
+                )}
               </div>
-              {currentTicket && (
-                <p className="text-sm text-muted-foreground">Current: {currentTicket}</p>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden flex flex-col p-0">
+              {loadingTickets ? (
+                <div className="flex-1 flex justify-center items-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <ScrollArea className="flex-1 h-full px-6">
+                  <Table className="table-fixed">
+                    <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                      <TableRow>
+                        <TableHead className="w-auto">Summary</TableHead>
+                        <TableHead className="w-[80px] text-center">Points</TableHead>
+                        <TableHead className="w-[100px]">Sprint</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ticketsList.map((t, idx) => {
+                        const isSkipped = skippedTickets.has(t.issueKey);
+                        return (
+                          <TableRow
+                            key={t.issueKey || idx}
+                            onClick={() => {
+                              const newSkipped = new Set(skippedTickets);
+                              if (isSkipped) {
+                                newSkipped.delete(t.issueKey);
+                              } else {
+                                newSkipped.add(t.issueKey);
+                              }
+                              setSkippedTickets(newSkipped);
+                            }}
+                            className={`cursor-pointer transition-colors ${
+                              isSkipped
+                                ? 'bg-red-50/50 hover:bg-red-50/80 opacity-60'
+                                : 'hover:bg-muted/50'
+                            }`}
+                          >
+                            <TableCell className="font-medium text-sm truncate max-w-0">
+                              <div className="flex items-center gap-2 truncate">
+                                {isSkipped && <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
+                                <span className={`truncate ${isSkipped ? 'line-through text-muted-foreground' : ''}`} title={t.summary}>
+                                  {t.summary}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center text-muted-foreground whitespace-nowrap">{t.storyPoints ?? '-'}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {t.sprint ? (
+                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-transparent">Sprint</Badge>
+                              ) : (
+                                <Badge variant="secondary" className="font-normal">Backlog</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Results */}
-        {result && <ResultsAlert result={result} />}
+          {/* Right Column: Configuration & Import */}
+          <div className="flex flex-col gap-6">
+            <ConfigCard
+              config={config}
+              setConfig={setConfig}
+              importing={importing}
+              rememberMe={rememberMe}
+              setRememberMe={setRememberMe}
+            />
+            <PrerequisitesAlert />
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="flex justify-center gap-4">
+                <Button
+                onClick={handleCheckExisting}
+                disabled={importing || checkingExisting || !config.domain || !config.email || !config.apiToken || !config.targetProject}
+                variant="outline"
+                size="lg"
+                className="px-8 shadow-lg h-11 w-full sm:w-auto"
+              >
+                {checkingExisting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    Check Existing
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleImport}
+                disabled={importing || checkingExisting || !config.domain || !config.email || !config.apiToken || !config.targetProject}
+                size="lg"
+                className="px-8 shadow-lg h-11 w-full sm:w-auto"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Start Import
+                  </>
+                )}
+              </Button>
+              </div>
+
+              <div className={`flex justify-center items-center gap-2 transition-opacity ${existingKeysFound.length === 0 ? 'opacity-50' : 'opacity-100'}`}>
+                <input
+                  type="checkbox"
+                  id="deleteExisting"
+                  checked={deleteExisting}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setDeleteExisting(checked);
+                    if (checked) {
+                      setSkippedTickets(prev => {
+                        const newSkipped = new Set(prev);
+                        existingKeysFound.forEach(k => newSkipped.delete(k));
+                        return newSkipped;
+                      });
+                    } else {
+                      setSkippedTickets(prev => {
+                        const newSkipped = new Set(prev);
+                        existingKeysFound.forEach(k => newSkipped.add(k));
+                        return newSkipped;
+                      });
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:cursor-not-allowed"
+                  disabled={importing || existingKeysFound.length === 0}
+                />
+                <Label
+                  htmlFor="deleteExisting"
+                  className={`text-sm font-normal ${existingKeysFound.length === 0 ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer text-red-700 dark:text-red-400'}`}
+                >
+                  Delete existing matching tickets before creating
+                </Label>
+              </div>
+            </div>
+
+            {/* Progress */}
+            {(importing || progressCurrent > 0) && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">Import Progress</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {progressCurrent} of {progressTotal} tickets
+                      </span>
+                      <span className="font-medium">{progressPercent}%</span>
+                    </div>
+                    <Progress value={progressPercent} />
+                  </div>
+                  {currentTicket && (
+                    <p className="text-sm text-muted-foreground">Current: {currentTicket}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Results */}
+            {result && <ResultsAlert result={result} />}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -289,7 +546,23 @@ function ConfigCard({
               id="domain"
               placeholder="your-domain.atlassian.net"
               value={config.domain}
-              onChange={(e) => setConfig({ ...config, domain: e.target.value })}
+              onChange={(e) => {
+                setConfig({ ...config, domain: e.target.value });
+              }}
+              onBlur={() => {
+                let val = config.domain.trim();
+
+                // Automatically strip out http://, https://
+                val = val.replace(/^https?:\/\//, '');
+                // Strip out trailing slash and anything after it
+                val = val.split('/')[0];
+
+                if (val && !val.includes('.')) {
+                  val = `${val}.atlassian.net`;
+                }
+
+                setConfig({ ...config, domain: val });
+              }}
               disabled={importing}
             />
           </div>
@@ -341,13 +614,13 @@ function ConfigCard({
             id="targetProject"
             placeholder="PROJ (e.g., DI, TEST, DEMO)"
             value={config.targetProject}
-            onChange={(e) => setConfig({ ...config, targetProject: e.target.value.toUpperCase() })}
+            onChange={(e) => setConfig({ ...config, targetProject: e.target.value.toUpperCase().trim() })}
             disabled={importing}
           />
           <p className="text-xs text-muted-foreground">The project key where tickets will be imported</p>
         </div>
 
-        <div className="flex items-center gap-2 pt-2 border-t">
+        <div className="flex items-center gap-2 pt-2 border-t mt-4">
           <input
             type="checkbox"
             id="rememberMe"
@@ -438,32 +711,6 @@ function PrerequisitesAlert() {
         </div>
       </AlertDescription>
     </Alert>
-  );
-}
-
-function ImportInfoCard() {
-  return (
-    <Card className="mb-6 bg-accent/5 border-accent/20">
-      <CardContent className="pt-6">
-        <div className="flex items-start gap-3">
-          <Upload className="w-5 h-5 text-accent mt-0.5" />
-          <div className="flex-1">
-            <h3 className="font-semibold mb-2">What will be imported?</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              17 Demo InsureCo Jira tickets (8 to sprint, 9 to backlog) with the following fields:
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-              {['Title (Summary)', 'Description', 'Issue Type', 'Parent Epics', 'Attachments', 'Story Points', 'Priority', 'Workflow Status', 'Sprint Assignment'].map(field => (
-                <div key={field} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>{field}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

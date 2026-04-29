@@ -355,27 +355,23 @@ export const handleCheckExistingTickets: RequestHandler = async (req, res) => {
     const tickets = parseTickets();
     const existingTicketKeys: string[] = [];
 
-    // Search for each ticket by summary to see if it already exists in the project
-    // Doing this in batches or individual queries to avoid JQL complexity limits
+    // Fetch issues from the target project to check for existing summaries
+    // We fetch up to 500 issues to ensure we cover the demo project's current state
+    const searchRes = await jiraClient.get('/rest/api/3/search', {
+      params: {
+        jql: `project = "${config.targetProject}"`,
+        fields: 'summary',
+        maxResults: 500,
+      },
+    });
+
+    const existingSummaries = new Set(
+      searchRes.data.issues?.map((i: any) => i.fields.summary) || []
+    );
+
     for (const ticket of tickets) {
-      // Escape quotes in summary for JQL
-      const escapedSummary = ticket.summary.replace(/"/g, '\\"');
-
-      try {
-        const searchRes = await jiraClient.get('/rest/api/3/search', {
-          params: {
-            jql: `project = "${config.targetProject}" AND summary ~ "\\"${escapedSummary}\\""`,
-            fields: 'summary',
-            maxResults: 1,
-          },
-        });
-
-        if (searchRes.data.issues && searchRes.data.issues.length > 0) {
-          existingTicketKeys.push(ticket.issueKey);
-        }
-      } catch (err) {
-        // Just skip if search fails for a specific ticket
-        console.error(`Error searching for ticket ${ticket.issueKey}:`, err);
+      if (existingSummaries.has(ticket.summary)) {
+        existingTicketKeys.push(ticket.issueKey);
       }
     }
 

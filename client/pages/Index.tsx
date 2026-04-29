@@ -120,7 +120,12 @@ export default function Index() {
             data.existingKeys.forEach((key: string) => newSkipped.add(key));
             return newSkipped;
           });
-          alert(`Found ${data.existingKeys.length} existing tickets in Jira. They have been marked to be skipped.`);
+
+          if (data.existingKeys.length === 0) {
+            alert('No existing tickets found in Jira. You are good to go!');
+          } else {
+            alert(`Found ${data.existingKeys.length} existing tickets in Jira. They have been marked to be skipped.`);
+          }
         }
       } else {
         alert('Failed to check existing tickets. Please verify your credentials.');

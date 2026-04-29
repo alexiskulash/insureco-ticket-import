@@ -69,6 +69,7 @@ export default function Index() {
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [checkingExisting, setCheckingExisting] = useState(false);
   const [skippedTickets, setSkippedTickets] = useState<Set<string>>(new Set());
+  const [existingKeysFound, setExistingKeysFound] = useState<string[]>([]);
 
   useEffect(() => {
     async function loadTickets() {
@@ -116,29 +117,18 @@ export default function Index() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.existingKeys) {
-          if (deleteExisting) {
-            setSkippedTickets(prev => {
-              const newSkipped = new Set(prev);
-              data.existingKeys.forEach((key: string) => newSkipped.delete(key));
-              return newSkipped;
-            });
-            if (data.existingKeys.length === 0) {
-              alert('No existing tickets found in Jira. You are good to go!');
-            } else {
-              alert(`Found ${data.existingKeys.length} existing tickets in Jira. They will be deleted and recreated during import.`);
-            }
-          } else {
-            setSkippedTickets(prev => {
-              const newSkipped = new Set(prev);
-              data.existingKeys.forEach((key: string) => newSkipped.add(key));
-              return newSkipped;
-            });
+          setExistingKeysFound(data.existingKeys);
 
-            if (data.existingKeys.length === 0) {
-              alert('No existing tickets found in Jira. You are good to go!');
-            } else {
-              alert(`Found ${data.existingKeys.length} existing tickets in Jira. They have been marked to be skipped.`);
-            }
+          setSkippedTickets(prev => {
+            const newSkipped = new Set(prev);
+            data.existingKeys.forEach((key: string) => newSkipped.add(key));
+            return newSkipped;
+          });
+
+          if (data.existingKeys.length === 0) {
+            alert('No existing tickets found in Jira. You are good to go!');
+          } else {
+            alert(`Found ${data.existingKeys.length} existing tickets in Jira. They have been marked to be skipped.`);
           }
         }
       } else {
@@ -401,14 +391,13 @@ export default function Index() {
               importing={importing}
               rememberMe={rememberMe}
               setRememberMe={setRememberMe}
-              deleteExisting={deleteExisting}
-              setDeleteExisting={setDeleteExisting}
             />
             <PrerequisitesAlert />
 
             {/* Action Buttons */}
-            <div className="flex justify-center gap-4 mb-6">
-              <Button
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="flex justify-center gap-4">
+                <Button
                 onClick={handleCheckExisting}
                 disabled={importing || checkingExisting || !config.domain || !config.email || !config.apiToken || !config.targetProject}
                 variant="outline"
@@ -444,6 +433,40 @@ export default function Index() {
                   </>
                 )}
               </Button>
+              </div>
+
+              <div className={`flex justify-center items-center gap-2 transition-opacity ${existingKeysFound.length === 0 ? 'opacity-50' : 'opacity-100'}`}>
+                <input
+                  type="checkbox"
+                  id="deleteExisting"
+                  checked={deleteExisting}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setDeleteExisting(checked);
+                    if (checked) {
+                      setSkippedTickets(prev => {
+                        const newSkipped = new Set(prev);
+                        existingKeysFound.forEach(k => newSkipped.delete(k));
+                        return newSkipped;
+                      });
+                    } else {
+                      setSkippedTickets(prev => {
+                        const newSkipped = new Set(prev);
+                        existingKeysFound.forEach(k => newSkipped.add(k));
+                        return newSkipped;
+                      });
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:cursor-not-allowed"
+                  disabled={importing || existingKeysFound.length === 0}
+                />
+                <Label
+                  htmlFor="deleteExisting"
+                  className={`text-sm font-normal ${existingKeysFound.length === 0 ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer text-red-700 dark:text-red-400'}`}
+                >
+                  Delete existing matching tickets before creating
+                </Label>
+              </div>
             </div>
 
             {/* Progress */}
@@ -496,16 +519,12 @@ function ConfigCard({
   importing,
   rememberMe,
   setRememberMe,
-  deleteExisting,
-  setDeleteExisting,
 }: {
   config: JiraConfig;
   setConfig: (c: JiraConfig) => void;
   importing: boolean;
   rememberMe: boolean;
   setRememberMe: (v: boolean) => void;
-  deleteExisting: boolean;
-  setDeleteExisting: (v: boolean) => void;
 }) {
   return (
     <Card className="mb-6 shadow-lg border-2">
@@ -601,38 +620,21 @@ function ConfigCard({
           <p className="text-xs text-muted-foreground">The project key where tickets will be imported</p>
         </div>
 
-        <div className="flex flex-col gap-3 pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="rememberMe"
-              checked={rememberMe}
-              onChange={(e) => {
-                setRememberMe(e.target.checked);
-                if (!e.target.checked) clearSavedConfig();
-              }}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
-              Remember my credentials
-            </Label>
-            <span className="text-xs text-muted-foreground">(saved in browser only)</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="deleteExisting"
-              checked={deleteExisting}
-              onChange={(e) => setDeleteExisting(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-              disabled={importing}
-            />
-            <Label htmlFor="deleteExisting" className="text-sm font-normal cursor-pointer text-red-700 dark:text-red-400">
-              Delete existing matching tickets
-            </Label>
-            <span className="text-xs text-muted-foreground hidden sm:inline">(deletes them before creating new ones during import)</span>
-          </div>
+        <div className="flex items-center gap-2 pt-2 border-t mt-4">
+          <input
+            type="checkbox"
+            id="rememberMe"
+            checked={rememberMe}
+            onChange={(e) => {
+              setRememberMe(e.target.checked);
+              if (!e.target.checked) clearSavedConfig();
+            }}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+            Remember my credentials
+          </Label>
+          <span className="text-xs text-muted-foreground">(saved in browser only)</span>
         </div>
       </CardContent>
     </Card>
